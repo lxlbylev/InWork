@@ -34,6 +34,17 @@ local c = {
 	blue = q.CL"0058EE",
 }
 c.darkblue = {c.blue[1]*.9,c.blue[2]*.9,c.blue[3]*.9}
+
+local c = {
+	white = q.CL"000000",
+	prewhite = q.CL"F9FAFB",
+	ultrablack = q.CL"CCCCCC",
+	black = q.CL"FFFFFF",
+	gray = q.CL"DEDEDE",
+	blue = q.CL"0058EE",
+	outline = q.CL"9F9F9F",
+}
+
 local function getSpaceWidth(font,fontSize)
 	local label = display.newText( " ", -1000, -1000, font, fontSize )
 	local w, h = label.width, label.height
@@ -43,12 +54,13 @@ end
 
 local function textWithLetterSpacing(options, space, anchorX)
 	space = space*.01 + 1
+	if options.color==nil then options.color={1,1,1} end
 
 	local j = 0
 	local text = options.text 
 	local width = 0
 	local textGroup = display.newGroup()
-	mainGroup:insert(textGroup)
+	options.parent:insert(textGroup)
 	for i=1, #text:gsub('[\128-\191]', '') do
 		local char = text:sub(i+j,i+j+1)
     local bytes = {string.byte(char,1,#char)}
@@ -62,6 +74,7 @@ local function textWithLetterSpacing(options, space, anchorX)
 		local charLabel = display.newText( textGroup, char, options.x+width, options.y, options.font, options.fontSize )
 		charLabel.anchorX=0
 		width = width + (charLabel.width-1.5)*space
+		charLabel:setFillColor( unpack(options.color) )
 	end
 	if anchorX then
 		textGroup.x = -width*(anchorX)
@@ -74,28 +87,16 @@ local function createField( y, label, name, discription )
 	local back = display.newRoundedRect(mainGroup, 50, y, q.fullw-50*2, 92, 6)
 	back.fill = c.gray
 	back.anchorX = 0
-
-	-- local label = display.newText( {
-	-- 	parent = mainGroup,
-	-- 	text = label,
-	-- 	x = 50,
-	-- 	y = y-back.height*.5,
-	-- 	font = "ubuntu_r.ttf",
-	-- 	fontSize = 14*2,
-	-- 	} )
-	-- label.anchorX = 0
-	-- label.anchorY = 1
-	-- label.y = label.y - label.height
 	
 	textWithLetterSpacing({
 		parent = mainGroup,
 		text = label,
 		x = 50,
-		y = y-back.height*.5-48,
+		y = y-back.height*.5-38,
 		font = "ubuntu_r.ttf",
 		fontSize = 14*2,
+		color = c.white,
 		}, 10)
-
 
 
 	local logField = native.newTextField(back.x+20, back.y, back.width-20, 90)
@@ -106,6 +107,7 @@ local function createField( y, label, name, discription )
 	logField.placeholder = discription
 	logField.font = native.newFont( "ubuntu_r.ttf",16*2)
 	logField:resizeHeightToFitFont()
+	logField:setTextColor( 0, 0, 0 )
 	firldsTable[name] = logField
 end
 local incorrectLabel
@@ -119,6 +121,7 @@ local function showWarnin(text,time)
 		transition.to(incorrectLabel.fill,{a=0,time=500} )
 	end)
 end
+local mail, pass
 local function handleResponse( event )
  
     if ( event.isError)  then
@@ -128,88 +131,13 @@ local function handleResponse( event )
     else
       myNewData = event.response
     	decodedData = (json.decode(myNewData))
-    	
-    	if event.response~=nil and event.response=="wrong!!!" then
+    	print(event.response)
+    	if event.response~=nil and event.response=="Incorrect\n\n\n" then
+    		print("showWarnin")
     		showWarnin("Неверная пара логин/пароль!")
-    	elseif decodedData~=nil and decodedData~="" then
-    		decodedData = decodedData[1]
-    		for k, v in pairs(decodedData) do
-	    		print(k,v)
-	    	end
-    		if decodedData==nil or decodedData=={} then print("Пустой реквест") return end
-				print("pass corect")
-				local stats = q.loadStats()
-
-				stats.xp = tonumber(decodedData.xp)
-				stats.lvl = tonumber(decodedData.currentLevel)
-
-
-
-				local statsOnID = {} --приходят айди а не нум уровня, далее в меню находится нум уровння
-    		local text = decodedData.passedLevelIDS.." "
-				local passedLevels = {}
-
-				local levelWithDates = {}
-				for v in text:gmatch("%d+%.%d%d%d%d%.%d%d%.%d%d*") do
-					local date = (v:sub(v:find("%.")+1,-1)):gsub("%.","-")
-					local lvl = tonumber(v:sub(1,v:find("%.")-1))
-					if levelWithDates[date]~=nil then
-						levelWithDates[date][#levelWithDates[date]+1] = lvl
-					else
-						levelWithDates[date] = {lvl}
-					end
-					print(v:sub(v:find("%.")+1,-1), "is", lvl)
-					passedLevels[#passedLevels+1] = v:sub(0,v:find("%.")-1)
-				end
-				stats.graf = levelWithDates
-				q.saveStats(stats)
-				-- print("+++",text)
-				for v in text:gmatch("%d+%.%d ") do
-					passedLevels[#passedLevels+1] = v
-					-- print("vdd",v)
-					-- print("++++++++++++++++++++++++++=")
-				end
-				for i=1, #levelWithDates do
-					print(i.."#",levelWithDates[i])
-				end
-				print("=")
-				for i=1, #passedLevels do
-					print(i.."#",passedLevels[i])
-				end
-			
-				local tasks = {"doneBestStep","doneBestCmd"}
-				for i=1, #passedLevels do
-					local thisNum = passedLevels[i]
-					print(thisNum)
-
-					if thisNum:find("%.") then
-						print("with .")
-						local first = tostring(thisNum:sub(1,thisNum:find("%.")-1))
-						print(thisNum)
-
-						local last = tonumber(thisNum:sub(thisNum:find("%.")+1,-1))
-						print(first,last)
-						-- print("ID:"..first)
-						-- print("TASK:"..last)
-						if statsOnID[first]==nil then statsOnID[first]={} end  
-						statsOnID[first][tasks[last]] = true
-					else
-						if statsOnID[tostring(passedLevels[i])]==nil then statsOnID[tostring(passedLevels[i])]={} end  
-						print("without")
-						print("level #"..passedLevels[i].." is done")
-						statsOnID[tostring(passedLevels[i])].done = true
-					end
-				end
-				composer.setVariable( "levelsIDStats", statsOnID )
-			
-
-
-				
-
-
-
-
-				q.saveLogin({decodedData.email,decodedData.password,server})
+    	else
+    		decodedData.sity="Якутск"
+				q.saveLogin(decodedData)
 				composer.gotoScene( "menu" )
 				composer.removeScene( "signin" )
 
@@ -297,13 +225,13 @@ end
 local submitButton
 local function submitFunc(event)
 	submitButton.fill = q.CL"4d327a"
-	local r,g,b = unpack( c.darkblue )
+	local r,g,b = unpack( c.blue )
 	timer.performWithDelay( 400, 
 	function()
 		transition.to(submitButton.fill,{r=r,g=g,b=b,time=300} )
 	end)
 
-	local mail, pass = firldsTable.mail.text, firldsTable.pass.text
+	mail, pass = firldsTable.mail.text, firldsTable.pass.text
 	local allows, errorMail = validemail(mail)
 	if not allows then
 		showWarnin(errorMail)
@@ -319,18 +247,22 @@ local function submitFunc(event)
 		-- composer.removeScene( "signin" )
 		
 		print("REQUEST")
-		local notReadyJson = json.encode( {} )
-    local jsonString = q.jsonForUrl(notReadyJson)
-    local name = "five"
-    local taskStep = "1"
-    local taskCmd = "2"
-    network.request( "http://127.0.0.1/dashboard/remembertoken.php?level="..jsonString.."&levelName="..name.."&xpCount=15&tasks="..taskStep.." "..taskCmd, "GET", networkListener, {body = "1233siohbiubik33"} )
-		-- network.request( "https://"..server.."/alihack/public/passwordCheck?email=" .. login .. "&password=".. pass, "GET", handleResponse, getParams )
-		-- network.request( "https://"..server.."/alihack/public/passwordCheck?email=" .. login .. "&password=".. pass, "GET", handleResponse, getParams )
-		-- print("https://"..server.."/alihack/public/passwordCheck?email=" .. login .. "&password=".. pass)
-		-- network.request( "https://google.com", "GET", handleResponse )
-		-- network.request( server.."/alihack/public/passwordCheck?email=denchik69150@gmail.com&password=12345678", "GET", handleResponse, getParams )
+		network.request( "http://"..server.."/dashboard/login.php?email=" .. mail .. "&password=".. pass, "GET", handleResponse, getParams )
 	end
+end
+
+local function showSignIn()
+	uiGroup.alpha = 0
+	mainGroup.alpha = 1
+	createField( 1120-240, "ПОЧТА", "mail", "Введите почту" )
+	firldsTable.mail.inputType = "email"
+
+	createField( 1120, "ПАРОЛЬ","pass", "Введите пароль" )
+	firldsTable.pass.isSecure = true
+	firldsTable.pass.inputType = "no-emoji"
+
+	firldsTable.mail.text = "admin@gmail.com"
+	firldsTable.pass.text = "12345678"
 end
 
 local logField, pasField, ipField
@@ -351,8 +283,9 @@ function scene:create( event )
 	local back = display.newRect(backGroup,q.cx,q.cy,q.fullw,q.fullh)
 	back.fill = c.black
 
+ 	
 
-	local backTop = display.newRect(backGroup,q.cx,0,q.fullw,440)
+	local backTop = display.newRect(mainGroup,q.cx,0,q.fullw,440)
 	backTop.anchorY = 0
 	backTop.fill = c.ultrablack
 
@@ -369,41 +302,23 @@ function scene:create( event )
 		fontSize = 24*2,
 		} )
 	labelSignIn.anchorX = 0
+	labelSignIn.fill = c.white
 
 	local labelDiscription = display.newText( {
 		parent = mainGroup,
 		text = "Войдите в аккаунт",
 		x = 50,
-		y = 440+100+80,
+		y = 440+100+70,
 		font = "ubuntu_r.ttf",
 		fontSize = 16*2,
 		} )
 	labelDiscription.anchorX = 0
+	labelDiscription.fill = c.white
 
-	-- textWithLetterSpacing({
-	-- 	parent = mainGroup,
-	-- 	text = "Войдите в аккаунт",
-	-- 	x = 50,
-	-- 	y = 480+100+80,
-	-- 	font = "ubuntu_r.ttf",
-	-- 	fontSize = 16*2,
-	-- 	}, 0)
 
-	-- textWithLetterSpacing({
-	-- 	parent = mainGroup,
-	-- 	text = "Войдите в аккаунт",
-	-- 	x = 50,
-	-- 	y = 520+100+80,
-	-- 	font = "ubuntu_r.ttf",
-	-- 	fontSize = 16*2,
-	-- 	}, 20)
+
+	mainGroup.alpha = 0
 	
-
-	createField( 1120-240, "ПОЧТА", "mail", "Введите почту" )
-	firldsTable.mail.inputType = "email"
-	createField( 1120, "ПАРОЛЬ","pass", "Введите пароль" )
-	firldsTable.pass.isSecure = true
-	firldsTable.pass.inputType = "no-emoji"
 
 	submitButton = display.newRoundedRect(mainGroup, 50, q.fullh-50, q.fullw-50*2, 92, 6)
 	submitButton.anchorX=0
@@ -418,39 +333,26 @@ function scene:create( event )
 		font = "ubuntu_b.ttf", 
 		fontSize = 14*2
 		}, 10, .5)
-
-	local label = display.newText( {
-		parent = mainGroup, 
-		text = "Забыли пароль?",
-		x = 60,
-		y = (1120)+100, 
-		font = "ubuntu_b.ttf", 
-		fontSize = 16*2
-		})
-	label.alpha = .5
-	label.anchorX=0
-
+-- 
 	-- local label = display.newText( {
 	-- 	parent = mainGroup, 
-	-- 	text = "AAAЗабыли пароль?",
+	-- 	text = "Забыли пароль?",
 	-- 	x = 60,
-	-- 	y = (1120)+150, 
-	-- 	font = "ubuntu_r.ttf", 
+	-- 	y = (1120)+100, 
+	-- 	font = "ubuntu_b.ttf", 
 	-- 	fontSize = 16*2
 	-- 	})
 	-- label.alpha = .5
 	-- label.anchorX=0
 
-	-- local logo = display.newImageRect(mainGroup, "logo.png",300, 351)
-	-- logo.x = q.cx
-	-- logo.y = 301
+
 
 
 	incorrectLabel = display.newText( {
-		parent = uiGroup, 
+		parent = mainGroup, 
 		text = "Неверная пара логин/пароль!", 
 		x = 60, 
-		y = 1280,
+		y = 1180,
 		width = q.fullw - 60*2, 
 		font = "roboto_r.ttf", 
 		fontSize = 37})
@@ -459,39 +361,98 @@ function scene:create( event )
 	incorrectLabel.anchorY=0
 	incorrectLabel.alpha=0
 
-	-- local version = system.getInfo("appVersionString")
-	-- local versionLabel = display.newText( uiGroup, "version: "..version, 20, q.fullh, "roboto_r.ttf", 35)
-	-- versionLabel.anchorX=0
-	-- versionLabel.anchorY=1
-	-- if version:sub(1,1)=="0" then
-	-- 	versionLabel.text = versionLabel.text.." beta"
-	-- end
 
-	local regLabel = display.newText( {
-		parent = mainGroup, 
-		text = "Нет аккаунта?",
-		x = labelDiscription.x,
-		y = labelDiscription.y+60, 
+
+
+
+	-- local regLabel = display.newText( {
+	-- 	parent = mainGroup, 
+	-- 	text = "Нет аккаунта?",
+	-- 	x = labelDiscription.x,
+	-- 	y = labelDiscription.y+60, 
+	-- 	font = "ubuntu_b.ttf", 
+	-- 	fontSize = 16*2
+	-- 	})
+	-- regLabel.alpha = .5
+	-- regLabel.anchorX=0
+
+	local labelDiscription = display.newText( {
+		parent = uiGroup,
+		text = "Добро пожаловать!",
+		x = q.cx,
+		y = 350,
+		font = "ubuntu_b.ttf",
+		fontSize = 28*2+4,
+		} )
+	labelDiscription.fill = c.white
+
+	local labelDiscription = display.newText( {
+		parent = uiGroup,
+		text = "Войдите в систему или создайте\nновую учетную запись",
+		x = q.cx,
+		y = 450,
+		font = "ubuntu_r.ttf",
+		fontSize = 16*2,
+		align = "center",
+		} )
+	labelDiscription.fill = c.white
+
+
+	local regButton = display.newRoundedRect(uiGroup, 50, q.fullh-50-130, q.fullw-50*2, 102, 6)
+	regButton.anchorX=0
+	regButton.anchorY=1
+	regButton.fill = c.blue
+
+	local labelContinue = textWithLetterSpacing( {
+		parent = uiGroup, 
+		text = "РЕГИСТРАЦИЯ", 
+		x = regButton.x+regButton.width*.5, 
+		y = regButton.y-regButton.height*.5,  
 		font = "ubuntu_b.ttf", 
-		fontSize = 16*2
-		})
-	regLabel.alpha = .5
-	regLabel.anchorX=0
+		fontSize = 14*2,
+		color = c.black,
+		}, 10, .5)
+
+
+	local signButton = display.newRoundedRect(uiGroup, 50, q.fullh-50, q.fullw-50*2, 102, 6)
+	signButton.anchorX=0
+	signButton.anchorY=1
+	signButton.fill = c.outline
+
+	local signWhiteFront = display.newRoundedRect(uiGroup, 50+5, q.fullh-50-5, q.fullw-50*2-10, 102-10, 6)
+	signWhiteFront.anchorX=0
+	signWhiteFront.anchorY=1
+	signWhiteFront.fill = c.black
+
+	local labelContinue = textWithLetterSpacing( {
+		parent = uiGroup, 
+		text = "ВОЙТИ", 
+		x = signButton.x+signButton.width*.5, 
+		y = signButton.y-signButton.height*.5,  
+		font = "ubuntu_b.ttf", 
+		fontSize = 14*2,
+		color = c.blue,
+		}, 10, .5)
+
+
+
+
 
 	-- firldsTable.ip.text="192.168.0.1"
 	-- firldsTable.login.text="denchik69150@gmail.com"
 	-- firldsTable.pass.text="12345678"
 
-	regLabel:addEventListener( "tap", function()
-		for k,v in pairs(firldsTable) do
-			firldsTable[k].x = -q.fullw
-		end
+	regButton:addEventListener( "tap", function()
+		-- for k,v in pairs(firldsTable) do
+		-- 	firldsTable[k].x = -q.fullw
+		-- end
 		timer.performWithDelay( 1,function()
 			composer.gotoScene("signup")
 		end )
 	end )
+	signButton:addEventListener( "tap", showSignIn )
 	submitButton:addEventListener( "tap", submitFunc )
-
+	-- showSignIn()
 end
 
 
@@ -502,9 +463,9 @@ function scene:show( event )
 
 	if ( phase == "will" ) then
 		local accountInfo = q.loadLogin()
-		if accountInfo[1]~="" then
+		if accountInfo~=nil and accountInfo~={} and accountInfo["email"]~=nil and accountInfo["email"]~="" then
 			print(accountInfo[1])
-			composer.setVariable( "ip", accountInfo[3] )
+			-- composer.setVariable( "ip", accountInfo[3] )
 			composer.gotoScene( "menu" )
 			composer.removeScene( "signin" )
 		end
@@ -514,10 +475,14 @@ function scene:show( event )
 		end
 	elseif ( phase == "did" ) then
 		
-
 		-- timer.performWithDelay( 1,function()
+		-- 	for k,v in pairs(firldsTable) do
+		-- 		firldsTable[k].x = -q.fullw
+		-- 	end
 		-- 	composer.gotoScene("signup")
 		-- end )
+		-- composer.gotoScene("menu")
+
 	end
 end
 

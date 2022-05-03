@@ -19,7 +19,7 @@ local accounts = {}
 
 local server
  
-local backGroup, mainGroup, uiGroup
+local backGroup, mainGroup, finishGroup
 
 local q = require"base"
 
@@ -34,6 +34,17 @@ local c = {
 	blue = q.CL"0058EE",
 }
 c.darkblue = {c.blue[1]*.9,c.blue[2]*.9,c.blue[3]*.9}
+
+local c = {
+	white = q.CL"000000",
+	prewhite = q.CL"F9FAFB",
+	ultrablack = q.CL"CCCCCC",
+	black = q.CL"FFFFFF",
+	gray = q.CL"DEDEDE",
+	blue = q.CL"0058EE",
+	outline = q.CL"9F9F9F",
+}
+
 local function getSpaceWidth(font,fontSize)
 	local label = display.newText( " ", -1000, -1000, font, fontSize )
 	local w, h = label.width, label.height
@@ -43,12 +54,13 @@ end
 
 local function textWithLetterSpacing(options, space, anchorX)
 	space = space*.01 + 1
+	if options.color==nil then options.color={1,1,1} end
 
 	local j = 0
 	local text = options.text 
 	local width = 0
 	local textGroup = display.newGroup()
-	mainGroup:insert(textGroup)
+	options.parent:insert(textGroup)
 	for i=1, #text:gsub('[\128-\191]', '') do
 		local char = text:sub(i+j,i+j+1)
     local bytes = {string.byte(char,1,#char)}
@@ -62,11 +74,12 @@ local function textWithLetterSpacing(options, space, anchorX)
 		local charLabel = display.newText( textGroup, char, options.x+width, options.y, options.font, options.fontSize )
 		charLabel.anchorX=0
 		width = width + (charLabel.width-1.5)*space
+		charLabel:setFillColor( unpack(options.color) )
 	end
 	if anchorX then
 		textGroup.x = -width*(anchorX)
 	end
-
+	return textGroup
 end
 
 local function createField( y, label, name, discription )
@@ -83,6 +96,7 @@ local function createField( y, label, name, discription )
 		y = y-back.height*.5-48,
 		font = "ubuntu_r.ttf",
 		fontSize = 14*2,
+		color = c.white,
 		}, 10)
 
 
@@ -100,6 +114,7 @@ end
 local incorrectLabel
 local function showWarnin(text,time)
 	time = time~=nil and time or 2000
+	print("set text:"..text)
 	incorrectLabel.text=text
 	incorrectLabel.alpha=1
 	incorrectLabel.fill.a=1
@@ -108,108 +123,34 @@ local function showWarnin(text,time)
 		transition.to(incorrectLabel.fill,{a=0,time=500} )
 	end)
 end
+
+local finished = false
+local function hideMain()
+	finished = true
+	mainGroup.alpha = 0
+	finishGroup.alpha = 1
+	firldsTable.email:removeSelf( )
+	for k,v in pairs(firldsTable) do
+		print(k,v)
+		firldsTable[k].x = -q.fullw
+		firldsTable[k]:removeSelf( )
+		v:removeSelf( )
+	end
+end
 local function handleResponse( event )
  
     if ( event.isError)  then
     	print( "Network error: ", event.response )
-		  -- showWarnin("Упс.. Что-то пошло не так")
 		  showWarnin(tostring("Ошибка подкючения: "..event.response), 10000)
     else
-      myNewData = event.response
-    	decodedData = (json.decode(myNewData))
-    	
-    	if event.response~=nil and event.response=="wrong!!!" then
-    		showWarnin("Неверная пара логин/пароль!")
-    	elseif decodedData~=nil and decodedData~="" then
-    		decodedData = decodedData[1]
-    		for k, v in pairs(decodedData) do
-	    		print(k,v)
-	    	end
-    		if decodedData==nil or decodedData=={} then print("Пустой реквест") return end
-				print("pass corect")
-				local stats = q.loadStats()
-
-				stats.xp = tonumber(decodedData.xp)
-				stats.lvl = tonumber(decodedData.currentLevel)
-
-
-
-				local statsOnID = {} --приходят айди а не нум уровня, далее в меню находится нум уровння
-    		local text = decodedData.passedLevelIDS.." "
-				local passedLevels = {}
-
-				local levelWithDates = {}
-				for v in text:gmatch("%d+%.%d%d%d%d%.%d%d%.%d%d*") do
-					local date = (v:sub(v:find("%.")+1,-1)):gsub("%.","-")
-					local lvl = tonumber(v:sub(1,v:find("%.")-1))
-					if levelWithDates[date]~=nil then
-						levelWithDates[date][#levelWithDates[date]+1] = lvl
-					else
-						levelWithDates[date] = {lvl}
-					end
-					print(v:sub(v:find("%.")+1,-1), "is", lvl)
-					passedLevels[#passedLevels+1] = v:sub(0,v:find("%.")-1)
-				end
-				stats.graf = levelWithDates
-				q.saveStats(stats)
-				-- print("+++",text)
-				for v in text:gmatch("%d+%.%d ") do
-					passedLevels[#passedLevels+1] = v
-					-- print("vdd",v)
-					-- print("++++++++++++++++++++++++++=")
-				end
-				for i=1, #levelWithDates do
-					print(i.."#",levelWithDates[i])
-				end
-				print("=")
-				for i=1, #passedLevels do
-					print(i.."#",passedLevels[i])
-				end
-			
-				local tasks = {"doneBestStep","doneBestCmd"}
-				for i=1, #passedLevels do
-					local thisNum = passedLevels[i]
-					print(thisNum)
-
-					if thisNum:find("%.") then
-						print("with .")
-						local first = tostring(thisNum:sub(1,thisNum:find("%.")-1))
-						print(thisNum)
-
-						local last = tonumber(thisNum:sub(thisNum:find("%.")+1,-1))
-						print(first,last)
-						-- print("ID:"..first)
-						-- print("TASK:"..last)
-						if statsOnID[first]==nil then statsOnID[first]={} end  
-						statsOnID[first][tasks[last]] = true
-					else
-						if statsOnID[tostring(passedLevels[i])]==nil then statsOnID[tostring(passedLevels[i])]={} end  
-						print("without")
-						print("level #"..passedLevels[i].." is done")
-						statsOnID[tostring(passedLevels[i])].done = true
-					end
-				end
-				composer.setVariable( "levelsIDStats", statsOnID )
-			
-
-
-				
-
-
-
-
-				q.saveLogin({decodedData.email,decodedData.password,server})
-				composer.gotoScene( "menu" )
-				composer.removeScene( "signin" )
-
-
-
-	    	-- for i=1, #decodedData do
-	    		-- accounts[i] = {decodedData[i].email,decodedData[i].password}
-	    		-- print(decodedData[i].email)
-	    		-- print(decodedData[i].password)
-    		-- end
-	    end
+    	local myNewData = event.response
+      if myNewData=="Register done!\n\n\n" then
+				hideMain()
+		  else
+		  	print(myNewData)
+		  	print(json.encode(myNewData))
+		  	showWarnin("Упс.. Что-то пошло не так")
+      end
     	
 
     	-- [[[{"id":"1","name":"neoko","email":"wotacc0809@gmail.com","email_verified_at":null,"password":"$2y$10$QJyVqgRGSr3jMxZytttME.cd6wU23WqPc\/F7I275zFsU9JnHE\/56e","remember_token":"dkeooNuuuxtC3MIkWv7yU52lvQ3SN8bUewNT92tfHEyKBxWQgkgtSmqtDtq9","created_at":"2022-04-25 01:29:28","updated_at":"2022-04-25 01:29:28"},{"id":"2","name":"lxl","email":"jopa@mama.com","email_verified_at":null,"password":"$2y$10$MkzjisTLAwC3c8z4J7mzM.bwDOwvtadLWCRM2VkdvgNaV2HXlj942","remember_token":null,"created_at":"2022-04-25 01:53:52","updated_at":"2022-04-25 01:53:52"}]]]
@@ -224,7 +165,7 @@ local function validemail(str)
   if str:len() == 0 then return nil, "Введите почту" end
   if (type(str) ~= 'string') then
     error("Expected string")
-    return nil
+    return nil, "Введите почту"
   end
   if not str:find("%@.") then 
     return nil, "Часть после @ некорректна!"
@@ -285,33 +226,34 @@ end
 
 local submitButton
 local function submitFunc(event)
+	if finished then
+		composer.gotoScene("signin")
+		return
+	end
 	submitButton.fill = q.CL"4d327a"
-	local r,g,b = unpack( c.darkblue )
+	local r,g,b = unpack( c.blue )
 	timer.performWithDelay( 400, 
 	function()
 		transition.to(submitButton.fill,{r=r,g=g,b=b,time=300} )
 	end)
 
-	local mail, pass = firldsTable.mail.text, firldsTable.pass.text
-	local allows, errorMail = validemail(mail)
+	local email, pass, name = firldsTable.email.text, firldsTable.pass.text, firldsTable.name.text
+	print(email, pass, name)
+	local allows, errorMail = validemail(email)
 	if not allows then
-		showWarnin(errorMail)
+		showWarnin(errorMail and errorMail or "mail")
 	elseif #pass==0 then
 		showWarnin("Введите пароль")
 	elseif #pass<8 then
 		showWarnin("Пароль от 8 символов")
 	elseif allows then
-		
-		-- composer.setVariable( "ip", ip )
-		-- server = ip
-
-		
-		-- print("REQUEST")
-		-- network.request( "https://"..server.."/alihack/public/passwordCheck?email=" .. login .. "&password=".. pass, "GET", handleResponse, getParams )
-		-- network.request( "https://"..server.."/alihack/public/passwordCheck?email=" .. login .. "&password=".. pass, "GET", handleResponse, getParams )
-		-- print("https://"..server.."/alihack/public/passwordCheck?email=" .. login .. "&password=".. pass)
-		-- network.request( "https://google.com", "GET", handleResponse )
-		-- network.request( server.."/alihack/public/passwordCheck?email=denchik69150@gmail.com&password=12345678", "GET", handleResponse, getParams )
+		if name~="" then name = "&name="..name end
+		local time = os.date("!*t",os.time())
+		time = time.day.." "..os.date("%B",os.time()).." "..time.year
+		print("REQUEST")
+		network.request( "http://127.0.0.1/dashboard/register.php?email="..email.."&password="..pass.."&date="..time..name, "GET", handleResponse )
+	else
+		showWarnin("dwwd символов")
 	end
 end
 
@@ -325,8 +267,9 @@ function scene:create( event )
 	mainGroup = display.newGroup()
 	sceneGroup:insert(mainGroup)
 
-	uiGroup = display.newGroup()
-	sceneGroup:insert(uiGroup)
+	finishGroup = display.newGroup()
+	sceneGroup:insert(finishGroup)
+	finishGroup.alpha = 0
 
 	server = composer.getVariable( "ip" )
 
@@ -339,7 +282,7 @@ function scene:create( event )
 	backTop.fill = c.ultrablack
 
 
-	local backLogo = display.newRoundedRect( mainGroup, q.cx, backTop.height*.5, 180, 180, 14*2 )
+	local backLogo = display.newRoundedRect( backGroup, q.cx, backTop.height*.5, 180, 180, 14*2 )
 	backLogo.fill = c.gray
 
 	local labelSignIn = display.newText( {
@@ -351,6 +294,7 @@ function scene:create( event )
 		fontSize = 24*2,
 		} )
 	labelSignIn.anchorX = 0
+	labelSignIn.fill = c.white
 
 	local labelDiscription = display.newText( {
 		parent = mainGroup,
@@ -361,36 +305,22 @@ function scene:create( event )
 		fontSize = 16*2,
 		} )
 	labelDiscription.anchorX = 0
+	labelDiscription.fill = c.white
 
-	-- textWithLetterSpacing({
-	-- 	parent = mainGroup,
-	-- 	text = "Войдите в аккаунт",
-	-- 	x = 50,
-	-- 	y = 480+100+80,
-	-- 	font = "ubuntu_r.ttf",
-	-- 	fontSize = 16*2,
-	-- 	}, 0)
 
-	-- textWithLetterSpacing({
-	-- 	parent = mainGroup,
-	-- 	text = "Войдите в аккаунт",
-	-- 	x = 50,
-	-- 	y = 520+100+80,
-	-- 	font = "ubuntu_r.ttf",
-	-- 	fontSize = 16*2,
-	-- 	}, 20)
-	
-
-	createField( 1120-240, "ПОЧТА", "mail", "Введите почту" )
-	firldsTable.mail.inputType = "email"
-	createField( 1120, "ПАРОЛЬ","pass", "Введите пароль" )
-	firldsTable.pass.isSecure = true
+	createField( 1120-240, "ПОЧТА", "email", "Введите почту" )
+	firldsTable.email.inputType = "email"
+	createField( 1120-50, "ПАРОЛЬ","pass", "Введите пароль" )
 	firldsTable.pass.inputType = "no-emoji"
 
-	submitButton = display.newRoundedRect(mainGroup, 50, q.fullh-50, q.fullw-50*2, 92, 6)
+	createField( 1120+240-100, "ФИО","name", "Фамалия Имя Отчество" )
+
+
+	submitButton = display.newRoundedRect(backGroup, 50, q.fullh-50, q.fullw-50*2, 92, 6)
 	submitButton.anchorX=0
 	submitButton.anchorY=1
 	submitButton.fill = c.blue
+
 
 	local labelContinue = textWithLetterSpacing( {
 		parent = mainGroup, 
@@ -405,34 +335,20 @@ function scene:create( event )
 		parent = mainGroup, 
 		text = "Уже есть аккаунт?",
 		x = 60,
-		y = (1120)+100, 
+		y = 1120+240-20, 
 		font = "ubuntu_b.ttf", 
 		fontSize = 16*2
 		})
+	label:setFillColor( unpack(c.white) )
 	label.alpha = .5
 	label.anchorX=0
 
-	-- local label = display.newText( {
-	-- 	parent = mainGroup, 
-	-- 	text = "AAAЗабыли пароль?",
-	-- 	x = 60,
-	-- 	y = (1120)+150, 
-	-- 	font = "ubuntu_r.ttf", 
-	-- 	fontSize = 16*2
-	-- 	})
-	-- label.alpha = .5
-	-- label.anchorX=0
-
-	-- local logo = display.newImageRect(mainGroup, "logo.png",300, 351)
-	-- logo.x = q.cx
-	-- logo.y = 301
-
 
 	incorrectLabel = display.newText( {
-		parent = uiGroup, 
+		parent = mainGroup, 
 		text = "Неверная пара логин/пароль!", 
 		x = 60, 
-		y = 1280,
+		y = 1500,
 		width = q.fullw - 60*2, 
 		font = "roboto_r.ttf", 
 		fontSize = 37})
@@ -441,29 +357,45 @@ function scene:create( event )
 	incorrectLabel.anchorY=0
 	incorrectLabel.alpha=0
 
-	-- local version = system.getInfo("appVersionString")
-	-- local versionLabel = display.newText( uiGroup, "version: "..version, 20, q.fullh, "roboto_r.ttf", 35)
-	-- versionLabel.anchorX=0
-	-- versionLabel.anchorY=1
-	-- if version:sub(1,1)=="0" then
-	-- 	versionLabel.text = versionLabel.text.." beta"
-	-- end
 
-	-- local regLabel = display.newText( uiGroup, "Регистрация", q.fullw-50, q.fullh-60, "roboto_r.ttf", 44)
-	-- regLabel.anchorX=1
+	local labelSucess = display.newText( {
+		parent = finishGroup,
+		text = "Регистрация завершена",
+		x = 50,
+		y = 440+100,
+		font = "ubuntu_b.ttf",
+		fontSize = 24*2,
+		} )
+	labelSucess.anchorX = 0
+	labelSucess:setFillColor(unpack(c.white))
 
-	-- firldsTable.ip.text="192.168.0.1"
-	-- firldsTable.login.text="denchik69150@gmail.com"
-	-- firldsTable.pass.text="12345678"
+	local labelDiscription = display.newText( {
+		parent = finishGroup,
+		text = "Теперь для можете входить в аккаунт",
+		x = 50,
+		y = 440+100+80+20,
+		width = q.fullw-120,
+		font = "ubuntu_r.ttf",
+		fontSize = 16*2,
+		} )
+	labelDiscription.anchorX = 0
+	labelDiscription:setFillColor(unpack(c.white))
 
-	-- regLabel:addEventListener( "tap", function()
-	-- 	firldsTable.ip.x = -q.fullw
-	-- 	firldsTable.pass.x = -q.fullw
-	-- 	firldsTable.login.x = -q.fullw
-	-- 	timer.performWithDelay( 1,function()
-	-- 		composer.gotoScene("signup")
-	-- 	end )
-	-- end )
+	local labelContinue = textWithLetterSpacing( {
+		parent = finishGroup, 
+		text = "ОК", 
+		x = submitButton.x+submitButton.width*.5, 
+		y = submitButton.y-submitButton.height*.5, 
+		font = "ubuntu_b.ttf", 
+		fontSize = 14*2
+		}, 10, .5)
+
+
+	firldsTable.email.text = "admin@gmail.com"
+	firldsTable.pass.text = "12345678"
+	firldsTable.name.text = "Lev Love Lol"
+
+
 	label:addEventListener( "tap", function()
 		for k,v in pairs(firldsTable) do
 			display.remove(firldsTable[k])
@@ -473,7 +405,6 @@ function scene:create( event )
 		end )
 	end )
 	submitButton:addEventListener( "tap", submitFunc )
-
 end
 
 
@@ -483,17 +414,10 @@ function scene:show( event )
 	local phase = event.phase
 
 	if ( phase == "will" ) then
-		local accountInfo = q.loadLogin()
-		if accountInfo[1]~="" then
-			print(accountInfo[1])
-			composer.setVariable( "ip", accountInfo[3] )
-			composer.gotoScene( "menu" )
-			composer.removeScene( "signin" )
-		end
 
 	elseif ( phase == "did" ) then
 		
-
+		-- hideMain()
 	end
 end
 
@@ -506,8 +430,7 @@ function scene:hide( event )
 	if ( phase == "will" ) then
 		
 	elseif ( phase == "did" ) then
-			composer.removeScene("signup")
-
+		composer.removeScene("signup")
 	end
 end
 
