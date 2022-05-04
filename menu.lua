@@ -1124,7 +1124,7 @@ function scene:create( event )
           parent = events,
           text = realEvent[i].datePost,
           x = 60,
-          y = newsLabel.y+newsLabel.height,
+          y = back.y+back.height-50,
           font = "roboto_r.ttf",
           fontSize = 13*2,
           })
@@ -1132,11 +1132,57 @@ function scene:create( event )
         dateLabel:setFillColor( unpack( q.CL"818C99" ) )
       end
       if account.lic=="admin" then
-        local down = display.newRect(eventGroup, q.cx, q.fullh, q.fullw, 250)
+        local down = display.newRect(eventGroup, q.cx, q.fullh, q.fullw, 270)
         down.anchorY=1
-        down.fill=c.gray
+        -- down.fill=c.gray
 
         local changeWorkButton, label = createButton(eventGroup, "СОЗДАТЬ НОВОСТЬ",q.fullh-150,"id")
+        changeWorkButton:addEventListener( "tap", function()
+          changeWorkButton.alpha = 0
+          label.alpha = 0
+          mainLabel.text = "Создание новости"
+          local createNewsGroup = display.newGroup()
+          eventGroup:insert(createNewsGroup)
+
+          local back = display.newRect(createNewsGroup, q.cx, q.cy, q.fullw, q.fullh)
+
+          local titleField = native.newTextField(40, 150, back.width-80, 90)
+          createNewsGroup:insert( titleField )
+          titleField.anchorX=0
+          titleField.pos = {x=titleField.x, y=titleField.y}
+          titleField.isEditable=true
+          titleField.hasBackground = false
+          titleField.placeholder = "Название"
+          titleField.font = native.newFont( "ubuntu_r.ttf",16*2)
+          titleField:resizeHeightToFitFont()
+          titleField:setTextColor( 0, 0, 0 )
+
+          local longField = native.newTextBox(40, 250-45, back.width-80, 190)
+          createNewsGroup:insert( longField )
+          longField.anchorX=0
+          longField.anchorY=0
+          longField.pos = {x=longField.x, y=longField.y}
+          longField.isEditable=true
+          longField.hasBackground = false
+          longField.placeholder = "Тело новости"
+          longField.font = native.newFont( "ubuntu_r.ttf",16*2)
+          longField:setTextColor( 0, 0, 0 )
+
+          local submitNews, label = createButton(createNewsGroup, "ОПУБЛИКОВАТЬ",q.fullh-150-120,"id")
+          submitNews:addEventListener( "tap", function() 
+            local time = os.date("!*t",os.time())
+            time = time.day.." "..os.date("%B",os.time()).." "..time.year
+            network.request( "http://"..server.."/dashboard/newsUpload.php?title="..titleField.text.."&date="..time, "GET", changeResponder )
+          end)
+          local cancelNews, label = createButton(createNewsGroup, "ОТМЕНА",q.fullh-150,"id")
+          cancelNews:addEventListener( "tap", function()
+            mainLabel.text = "События"
+            display.remove(createNewsGroup)
+            changeWorkButton.alpha = 1
+
+          end )
+
+        end)
       end
       -- q.event.group.on("testsButtons")
       if #realEvent>2 then
