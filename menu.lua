@@ -956,69 +956,7 @@ function scene:create( event )
   profileButton:setFillColor( unpack( c.grayButtons ) )
   profileButton:addEventListener( "tap", toAccount )
 
-  if isDevice then
-    local data = q.getConnection("tests")
-    testsResponder({response=data})
-  else
-    network.request( "http://"..server.."/dashboard/testsDownload.php", "GET",testsResponder )
-  end
-  -- ------------------------
-  local function kursesAdd(event)
-    if ( event.isError)  then
-    print( "Error!" )
-  else
-    local myNewData = event.response
-    print("Serddder:",myNewData)
-    local dataKurs = (json.decode(myNewData))
-    
-    local space = 70
-    local testHeight = (q.fullw-3*space)*.5
-
-    for i=1, #dataKurs do
-      local images = display.newRoundedRect(kursGroup, q.cx*.55, 350+math.floor((i-1)/2)*(testHeight+150), testHeight, testHeight,12)
-      images.anchorY = 0
-      images.fill = c.gray
-      images.i = i
-      if i%2==0 then
-        images.x = q.cx*1.45
-      end
-
-      local paint = {
-        type = "image",
-        -- filename = "img/kurs_template.png"
-        filename = "img/kurses/"..i..".jpg"
-      }
-      images.fill = paint
-
-      local discpriptionLabel = display.newText({
-        parent = kursGroup,
-        text = dataKurs[i].title,
-        x = images.x-images.width*.5+10,
-        y = images.y+images.width+15,
-        width = testHeight-40,
-        font = "poppins_m.ttf",
-        fontSize = 12*2,
-        })
-      discpriptionLabel.anchorX = 0
-      discpriptionLabel.anchorY = 0
-      discpriptionLabel:setFillColor( unpack( c.black ) )
-
-    end
-
-    end
-  end
-  if isDevice then
-    local data = q.getConnection("tests")
-    kursesAdd({response=data})
-  else
-    network.request( "http://"..server.."/dashboard/kursesDownload.php", "GET",kursesAdd )
-  end
-  local dataKurs = {
-    title = "Курс верстки веб-страниц",
-    buy = "10.000р",
-    buy = "10.000р",
-  }
-
+  
   
 
   -- ========================
@@ -1090,82 +1028,131 @@ function scene:create( event )
 	searchField:setTextColor( 0, 0, 0 )
 
 	
+  if isDevice then
+    local data = q.getConnection("tests")
+    testsResponder({response=data})
+  else
+    network.request( "http://"..server.."/dashboard/testsDownload.php", "GET",testsResponder )
+  end
+  -- ------------------------
+  local function kursesAdd(event)
+    if ( event.isError)  then
+      print( "Error!" )
+    else
+      local myNewData = event.response
+      print("Serddder:",myNewData)
+      local dataKurs = (json.decode(myNewData))
+      
+      local space = 70
+      local testHeight = (q.fullw-3*space)*.5
+
+      for i=1, #dataKurs do
+        local images = display.newRoundedRect(kursGroup, q.cx*.55, 350+math.floor((i-1)/2)*(testHeight+150), testHeight, testHeight,12)
+        images.anchorY = 0
+        images.fill = c.gray
+        images.i = i
+        if i%2==0 then
+          images.x = q.cx*1.45
+        end
+
+        local paint = {
+          type = "image",
+          -- filename = "img/kurs_template.png"
+          filename = "img/kurses/"..i..".jpg"
+        }
+        images.fill = paint
+
+        local discpriptionLabel = display.newText({
+          parent = kursGroup,
+          text = dataKurs[i].title,
+          x = images.x-images.width*.5+10,
+          y = images.y+images.width+15,
+          width = testHeight-40,
+          font = "poppins_m.ttf",
+          fontSize = 12*2,
+          })
+        discpriptionLabel.anchorX = 0
+        discpriptionLabel.anchorY = 0
+        discpriptionLabel:setFillColor( unpack( c.black ) )
+
+      end
+
+    end
+  end
+  if isDevice then
+    local data = q.getConnection("tests")
+    kursesAdd({response=data})
+  else
+    network.request( "http://"..server.."/dashboard/kursesDownload.php", "GET",kursesAdd )
+  end
 	
 
 	-- ========================
   -- ------------------------
   -- ========================
 
-  local realEvent = {
-    {
-      title = "Открытие конкурса для начинающий IT-специалистов",
-      telo = "",
-      date = "3 Мая 2022",
-    },
-    {
-      title = "Сбор на бесплатный вебинар! Обучение софт скиллам",
-      telo = "",
-      date = "3 Мая 2022",
-    },
-    {
-      title = "Открылся сайт центр занятости населения РС(Я)!",
-      telo = "",
-      date = "3 Мая 2022",
-    }
-  }
-  local testHeight = 520
-  local events = display.newGroup()
-  eventGroup:insert(events)
-  for i=1, #realEvent do
-    -- local images = display.newRoundedRect(newsGroup, q.cx, 335+(i-1)*(testHeight+30), q.fullw-30*2,testHeight,12)
-    -- images.anchorY = 0
-    -- images.fill = c.gray
-    -- images.i = i
-    -- q.event.add("playtest"..i, images, startQuiz)
-    -- q.event.group.add("testsButtons","playtest"..i)
+  local function newsAdd(event)
+    if ( event.isError)  then
+      print( "Error!" )
+    else
+      local myNewData = event.response
+      print("Serddder:",myNewData)
+      local realEvent = (json.decode(myNewData))
+        
+      local testHeight = 520
+      local events = display.newGroup()
+      eventGroup:insert(events)
+      for i=1, #realEvent do
 
-    -- local paint = {
-    --   type = "image",
-    --   filename = "img/tests/"..i..".jpg"
-    -- }
-    -- images.fill = paint
+        local back = display.newRoundedRect(events, q.cx, 160+(i-1)*230, q.fullw-60, 200, 12)
+        back.anchorY=0
+        back.fill = c.gray2
 
-    -- local front = display.newRoundedRect(newsGroup, q.cx, images.y+images.height, images.width,140,12)
-    -- front.anchorY=1
-    -- front.fill = c.gray2
+        local newsLabel = display.newText({
+          parent = events,
+          text = realEvent[i].title,
+          x = 60,
+          y = back.y+back.height*.25+15,
+          width = q.fullw-100,
+          font = "ubuntu_m.ttf",
+          fontSize = 16*2,
+          })
+        newsLabel.anchorX = 0
+        newsLabel:setFillColor( unpack( c.black ) )
 
-    local frontUp = display.newRoundedRect(events, q.cx, 160+(i-1)*230, q.fullw-60, 200, 12)
-    frontUp.anchorY=0
-    frontUp.fill = c.gray2
+        local dateLabel = display.newText({
+          parent = events,
+          text = realEvent[i].datePost,
+          x = 60,
+          y = newsLabel.y+newsLabel.height,
+          font = "roboto_r.ttf",
+          fontSize = 13*2,
+          })
+        dateLabel.anchorX = 0
+        dateLabel:setFillColor( unpack( q.CL"818C99" ) )
+      end
+      if account.lic=="admin" then
+        local down = display.newRect(eventGroup, q.cx, q.fullh, q.fullw, 250)
+        down.anchorY=1
+        down.fill=c.gray
 
-    local newsLabel = display.newText({
-      parent = events,
-      text = realEvent[i].title,
-      x = 60,
-      y = frontUp.y+frontUp.height*.25+15,
-      width = q.fullw-100,
-      font = "ubuntu_m.ttf",
-      fontSize = 16*2,
-      })
-    newsLabel.anchorX = 0
-    newsLabel:setFillColor( unpack( c.black ) )
-
-    local dateLabel = display.newText({
-      parent = events,
-      text = realEvent[i].date,
-      x = 60,
-      y = newsLabel.y+newsLabel.height,
-      font = "roboto_r.ttf",
-      fontSize = 13*2,
-      })
-    dateLabel.anchorX = 0
-    dateLabel:setFillColor( unpack( q.CL"818C99" ) )
+        local changeWorkButton, label = createButton(eventGroup, "СОЗДАТЬ НОВОСТЬ",q.fullh-150,"id")
+      end
+      -- q.event.group.on("testsButtons")
+      if #realEvent>2 then
+        -- maxUp = -(testHeight+30)*(#realEvent-2)+160
+        -- events:addEventListener("touch", scroll)
+      end
+    end
   end
-  -- q.event.group.on("testsButtons")
-  if #realEvent>2 then
-    -- maxUp = -(testHeight+30)*(#realEvent-2)+160
-    -- events:addEventListener("touch", scroll)
+  if isDevice then
+    -- local data = q.getConnection("tests")
+    -- kursesAdd({response=data})
+  else
+    network.request( "http://"..server.."/dashboard/newsDownload.php", "GET",newsAdd )
   end
+  
+  
 
   -- ========================
   -- ------------------------
@@ -1423,8 +1410,8 @@ function scene:show( event )
 
 	elseif ( phase == "did" ) then
 		-- toAccount()
-      toKurs()
-    -- toEvent()
+      -- toKurs()
+    toEvent()
 		-- toChat()
     -- toAdmin()
 	end
