@@ -70,6 +70,17 @@ local base = {
 
   jsonForUrl = jsonForUrl,
   options = options,
+  getConnection = function( path )
+    local file,err = io.open( system.pathForFile( "data/"..path..".json", system.ResourceDirectory ), "r" )
+    local data
+    print(err)
+    if file then
+      data = file:read( "*a" )
+      io.close( file )
+      print("data:",data)
+    end
+    return data
+  end,
 
   CL = CL,
   div = function(num, hz)

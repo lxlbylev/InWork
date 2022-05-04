@@ -8,6 +8,7 @@ composer.gotoScene( "menu" )
 local composer = require( "composer" )
 
 local scene = composer.newScene()
+local isDevice = (system.getInfo("environment") == "device")
 
 -- local sqlite3 = require "sqlite3"
 local myNewData 
