@@ -346,7 +346,7 @@ function scene:create( event )
 		font = "ubuntu_b.ttf", 
 		fontSize = 14*2
 		}, 10, .5)
--- 
+	-- 
 	-- local label = display.newText( {
 	-- 	parent = mainGroup, 
 	-- 	text = "Забыли пароль?",
