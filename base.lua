@@ -1,5 +1,6 @@
 local taskPath = system.pathForFile( "stats.json", system.DocumentsDirectory )
 local accountPath = system.pathForFile( "user.json", system.DocumentsDirectory )
+local usersPath = system.pathForFile( "users.json", system.DocumentsDirectory )
 local json = require( "json" )
 
 local round = function(num, idp)
@@ -71,13 +72,34 @@ local base = {
   jsonForUrl = jsonForUrl,
   options = options,
   getConnection = function( path )
-    local file,err = io.open( system.pathForFile( "data/"..path..".json", system.ResourceDirectory ), "r" )
+    local file = io.open( system.pathForFile( path..".json", system.DocumentsDirectory ), "r" )
     local data
-    print(err)
     if file then
       data = file:read( "*a" )
       io.close( file )
-      print("data:",data)
+
+    else
+      print(path.." not found. Create new")
+      local fileOrig = io.open( system.pathForFile( "data/"..path..".json", system.ResourceDirectory ), "r" )
+      data = fileOrig:read( "*a" )
+
+      local file = io.open( system.pathForFile( path..".json", system.DocumentsDirectory ), "w" )
+ 
+      if file then
+        file:write( data )
+        io.close( file )
+      end
+
+    end 
+    -- print("out",data)
+    return data
+  end,
+  postConnection = function( path, val )
+    local file = io.open( system.pathForFile( path..".json", system.DocumentsDirectory ), "w" )
+ 
+    if file then
+      file:write( json.encode( val ) )
+      io.close( file )
     end
     return data
   end,
@@ -114,9 +136,6 @@ local base = {
   saveLogin = function(account)
     saveFile(account, accountPath)
   end,
-  printJson = function(var)
-    print(json.encode(var))
-  end,
   loadLogin = function()
 
     local account = openFile(accountPath)
@@ -126,6 +145,33 @@ local base = {
       saveFile(account, accountPath)
     end
     return account
+  end,
+  saveUsers = function(users)
+    saveFile(users, usersPath)
+  end,
+  loadUsers = function()
+    local users = openFile(usersPath)
+
+    if ( users == nil or #users == 0 ) then
+      users = {
+        [[{"id":"1","email":"user@gmail.com","name":"Софронов Александр Иннокентьевич","phonenumber":"","password":"12345678","working":"0","lic":"user","plan":"BASIC","signupdate":"3 May 2022","havejobdate":"{}"}]],
+        [[{"id":"2","email":"worker@gmail.com","name":"Филиппов Егор Донатович","phonenumber":"","password":"12345678","working":"0","lic":"worker","plan":"VIP","signupdate":"3 May 2022","havejobdate":"{}"}]],
+        [[{"id":"3","email":"admin@gmail.com","name":"Ершов Яков Лаврентьевич","phonenumber":"","password":"12345678","working":"0","lic":"user","plan":"BASIC","signupdate":"1 May 2022","havejobdate":"{}"}]],
+      }
+      -- users = {
+      --   [[{"id":"1","email":"alex@gmail.com","name":"Софронов Александр Иннокентьевич","phonenumber":"","password":"12345678","working":"0","lic":"user","plan":"BASIC","signupdate":"3 May 2022","havejobdate":"{}"}]],
+      --   [[{"id":"2","email":"egor@gmail.com","name":"Филиппов Егор Донатович","phonenumber":"","password":"12345678","working":"0","lic":"user","plan":"BASIC","signupdate":"3 May 2022","havejobdate":"{}"}]],
+      --   [[{"id":"3","email":"yakov@gmail.com","name":"Ершов Яков Лаврентьевич","phonenumber":"","password":"12345678","working":"0","lic":"user","plan":"VIP","signupdate":"3 May 2022","havejobdate":"{}"}]],
+      --   [[{"id":"4","email":"uriy@gmail.com","name":"Симонов Юрий Альвианович","phonenumber":"","password":"12345678","working":"0","lic":"worker","plan":"BASIC","signupdate":"3 May 2022","havejobdate":"{}"}]],
+      --   [[{"id":"5","email":"mihail@gmail.com","name":"Владимиров Михаил Львович","phonenumber":"","password":"12345678","working":"0","lic":"worker","plan":"BASIC","signupdate":"3 May 2022","havejobdate":"{}"}]],
+      --   [[{"id":"6","email":"bogdan@gmail.com","name":"Калашников Богдан Христофорович","phonenumber":"","password":"12345678","working":"0","lic":"admin","plan":"BASIC","signupdate":"3 May 2022","havejobdate":"{}"}]],
+      -- }
+      saveFile(users, usersPath)
+    end
+    return users
+  end,
+  printJson = function(var)
+    print(json.encode(var))
   end,
   event = {
     add = function(name, butt, funcc)

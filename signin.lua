@@ -8,9 +8,8 @@ composer.gotoScene( "menu" )
 local composer = require( "composer" )
 
 local scene = composer.newScene()
-local isDevice = (system.getInfo("environment") == "device")
+local isDevice = true--(system.getInfo("environment") == "device")
 
--- local sqlite3 = require "sqlite3"
 local myNewData 
 local json = require( "json" )
 local decodedData 
@@ -287,6 +286,7 @@ function scene:create( event )
 
 	mainGroup = display.newGroup()
 	sceneGroup:insert(mainGroup)
+	mainGroup.alpha = 0
 
 	uiGroup = display.newGroup()
 	sceneGroup:insert(uiGroup)
@@ -329,8 +329,6 @@ function scene:create( event )
 	labelDiscription.fill = c.white
 
 
-
-	mainGroup.alpha = 0
 	
 
 	submitButton = display.newRoundedRect(mainGroup, 50, q.fullh-50, q.fullw-50*2, 92, 6)
@@ -346,17 +344,6 @@ function scene:create( event )
 		font = "ubuntu_b.ttf", 
 		fontSize = 14*2
 		}, 10, .5)
-	-- 
-	-- local label = display.newText( {
-	-- 	parent = mainGroup, 
-	-- 	text = "Забыли пароль?",
-	-- 	x = 60,
-	-- 	y = (1120)+100, 
-	-- 	font = "ubuntu_b.ttf", 
-	-- 	fontSize = 16*2
-	-- 	})
-	-- label.alpha = .5
-	-- label.anchorX=0
 
 
 
@@ -376,49 +363,20 @@ function scene:create( event )
 
 
 
+	local welcomeImage = display.newImageRect( uiGroup, "img/welcome.png", q.fullw, q.fullw*1.28 )
+	welcomeImage.x = q.cx
+	welcomeImage.y = q.fullh*.35
 
 
-	-- local regLabel = display.newText( {
-	-- 	parent = mainGroup, 
-	-- 	text = "Нет аккаунта?",
-	-- 	x = labelDiscription.x,
-	-- 	y = labelDiscription.y+60, 
-	-- 	font = "ubuntu_b.ttf", 
-	-- 	fontSize = 16*2
-	-- 	})
-	-- regLabel.alpha = .5
-	-- regLabel.anchorX=0
 
-	local labelDiscription = display.newText( {
-		parent = uiGroup,
-		text = "Добро пожаловать!",
-		x = q.cx,
-		y = 350,
-		font = "ubuntu_b.ttf",
-		fontSize = 28*2+4,
-		} )
-	labelDiscription.fill = c.white
-
-	local labelDiscription = display.newText( {
-		parent = uiGroup,
-		text = "Войдите в систему или создайте\nновую учетную запись",
-		x = q.cx,
-		y = 450,
-		font = "ubuntu_r.ttf",
-		fontSize = 16*2,
-		align = "center",
-		} )
-	labelDiscription.fill = c.white
-
-
-	local regButton = display.newRoundedRect(uiGroup, 50, q.fullh-50-130, q.fullw-50*2, 102, 6)
+	local regButton = display.newRoundedRect(uiGroup, 60, q.fullh-50-130, q.fullw-60*2, 110, 30)
 	regButton.anchorX=0
 	regButton.anchorY=1
 	regButton.fill = c.blue
 
 	local labelContinue = textWithLetterSpacing( {
 		parent = uiGroup, 
-		text = "РЕГИСТРАЦИЯ", 
+		text = "НАЧАТЬ", 
 		x = regButton.x+regButton.width*.5, 
 		y = regButton.y-regButton.height*.5,  
 		font = "ubuntu_b.ttf", 
@@ -427,21 +385,16 @@ function scene:create( event )
 		}, 10, .5)
 
 
-	local signButton = display.newRoundedRect(uiGroup, 50, q.fullh-50, q.fullw-50*2, 102, 6)
+	local signButton = display.newRoundedRect(uiGroup, 60, q.fullh-50, q.fullw-60*2, 110, 30)
 	signButton.anchorX=0
 	signButton.anchorY=1
-	signButton.fill = c.outline
-
-	local signWhiteFront = display.newRoundedRect(uiGroup, 50+5, q.fullh-50-5, q.fullw-50*2-10, 102-10, 6)
-	signWhiteFront.anchorX=0
-	signWhiteFront.anchorY=1
-	signWhiteFront.fill = c.black
+	signButton.fill = c.black
 
 	local labelContinue = textWithLetterSpacing( {
 		parent = uiGroup, 
 		text = "ВОЙТИ", 
-		x = signButton.x+signButton.width*.5, 
-		y = signButton.y-signButton.height*.5,  
+		x = q.cx, 
+		y = q.fullh-105,  
 		font = "ubuntu_b.ttf", 
 		fontSize = 14*2,
 		color = c.blue,
@@ -455,16 +408,21 @@ function scene:create( event )
 	-- firldsTable.login.text="denchik69150@gmail.com"
 	-- firldsTable.pass.text="12345678"
 
-	regButton:addEventListener( "tap", function()
-		-- for k,v in pairs(firldsTable) do
-		-- 	firldsTable[k].x = -q.fullw
-		-- end
-		timer.performWithDelay( 1,function()
+	
+	if isDevice then
+		signButton:addEventListener( "tap", function()
+			composer.gotoScene("signtest")
+		end )
+		regButton:addEventListener( "tap", function()
+			composer.gotoScene("signtest")
+		end )
+	else
+		signButton:addEventListener( "tap", showSignIn )
+		submitButton:addEventListener( "tap", submitFunc )
+		regButton:addEventListener( "tap", function()
 			composer.gotoScene("signup")
 		end )
-	end )
-	signButton:addEventListener( "tap", showSignIn )
-	submitButton:addEventListener( "tap", submitFunc )
+	end
 	-- showSignIn()
 end
 
@@ -481,6 +439,8 @@ function scene:show( event )
 			-- composer.setVariable( "ip", accountInfo[3] )
 			composer.gotoScene( "menu" )
 			composer.removeScene( "signin" )
+		else
+			-- composer.gotoScene("signtest")
 		end
 
 		for k,v in pairs(firldsTable) do

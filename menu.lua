@@ -8,11 +8,13 @@ composer.gotoScene( "menu" )
 local composer = require( "composer" )
 
 local scene = composer.newScene()
-local isDevice = (system.getInfo("environment") == "device")
+local isDevice = true--(system.getInfo("environment") == "device")
 
-local backGroup, mainGroup, testsGroup, kursGroup, eventGroup, chatGroup, profileGroup, adminGroup, uiGroup, quizScreen
+local backGroup, mainGroup, testsGroup, kursGroup, eventGroup, chatGroup, profileGroup, adminGroup, uiGroup, quizScreen, quizGame
 
 local q = require"base"
+local server
+
 
 local c = {
 	black = q.CL"000000",
@@ -35,38 +37,40 @@ local news = {
 	{title = "Проф. тест по гуманитарным наукам",date = "03 мая, 2022"},
 	{title = "Проф. пригодность",date = "03 мая, 2022"},
 }
-local maxUp = 0
-local maxDown = 0
-local cancelTouch = false
-local server
+
+local scrollInfo = {test={cancel=false,maxDown=0,maxUp=0},news={cancel=false,maxDown=0,maxUp=0}}
 local function scroll(event)
   local phase = event.phase
   local scrollingGroup = event.target
+
+  local tag = event.target.scrolltag
+  local maxUp, maxDown = scrollInfo[tag].maxUp, scrollInfo[tag].maxDown
   display.currentStage:setFocus( scrollingGroup )
 
   if ( "began" == phase ) then
-    if event.y>(q.fullh-125) or event.y<330 then cancelTouch = true display.currentStage:setFocus( nil ) return end
-    cancelTouch = false
+    if event.y>(q.fullh-125) or event.y<330 then scrollInfo[tag].cancel = true display.currentStage:setFocus( nil ) return end
+    scrollInfo[tag].cancel = false
     scrollingGroup.mouseY = event.y
     scrollingGroup.oldposY = scrollingGroup.y
   elseif ( "moved" == phase ) then
-    if cancelTouch then return end
+    if scrollInfo[tag].cancel then return end
     if scrollingGroup.mouseY and scrollingGroup.oldposY then
         
       -- print(event.y-scrollingGroup.mouseY)
-      if (event.y-scrollingGroup.mouseY>maxDown) and scrollingGroup.y>maxDown then 
+      local thisY = event.y-scrollingGroup.mouseY
+      if (thisY>maxDown) and scrollingGroup.y>maxDown then 
         scrollingGroup.y = maxDown
         display.currentStage:setFocus( nil )
-        cancelTouch = true
+        scrollInfo[tag].cancel = true
         return 
-      elseif (event.y-scrollingGroup.mouseY<maxDown) and scrollingGroup.y<maxUp then 
-        cancelTouch = true
+      elseif (thisY<maxDown) and scrollingGroup.y<maxUp then 
+        scrollInfo[tag].cancel = true
         scrollingGroup.y = maxUp
         display.currentStage:setFocus( nil )
         return
       end
 
-      scrollingGroup.y = scrollingGroup.oldposY+(event.y-scrollingGroup.mouseY)
+      scrollingGroup.y = scrollingGroup.oldposY+thisY
     else
       display.currentStage:setFocus( nil )
     end
@@ -91,9 +95,10 @@ local nowScene = "menu"
 local mainButton, eventButton, chatButton, profileButton
 local graf
 local quizGame, quizCreate
+local closePCMenu = function() end
+local closeCN = function() end
 local function hideLayer(toScene)
   if quizGame~=nil then
-    display.remove(quizGame)
     q.event.group.on("testsButtons")
     searchField.x = searchField.pos.x
     searchField.y = searchField.pos.y
@@ -101,6 +106,8 @@ local function hideLayer(toScene)
   if nowScene==toScene then return end
 	timer.performWithDelay( 1, function()
 		if nowScene == "menu" then
+
+      display.remove(quizGame) quizGame=nil
 	  	mainButton:setFillColor( unpack( c.grayButtons ) )
 			searchField.x = -1000
 			searchField.y = -1000
@@ -110,12 +117,14 @@ local function hideLayer(toScene)
 		elseif nowScene == "profile" then
 			profileGroup.alpha = 0
 	  	profileButton:setFillColor( unpack( c.grayButtons ) )
+      closePCMenu()
 		elseif nowScene == "chat" then
 			chatGroup.alpha = 0
 	  	chatButton:setFillColor( unpack( c.grayButtons ) )
 		elseif nowScene == "event" then
 			eventGroup.alpha = 0
 	  	eventButton:setFillColor( unpack( c.grayButtons ) )
+      closeCN()
     elseif nowScene == "admin" then
       adminGroup.alpha = 0
       display.remove(graf)
@@ -225,11 +234,15 @@ local function genCircle(realPercent, x, y, left)
     citc.fill = c.blue
     citc.anchorY = 0
 
-    if realPercent<50 then
+    if realPercent<50 then -- до 50
       citc.anchorX = 0
-    elseif realPercent<75 then
-      citc.anchorX = ((citc.width-dlin)/dlin)*.5
-    elseif realPercent<100 then
+    elseif realPercent<75 then -- после 50
+      -- print(citc.width-dlin,dlin*2)
+      local slevaDop = citc.width-dlin
+      local all = dlin*2
+      citc.anchorX = ((slevaDop)/(citc.width))
+      -- print(citc.anchorX,"anchorX")
+    elseif realPercent<100 then -- после 75
       citc.anchorX = .5
     end
     local mask = display.newImageRect( graf, "img/maskx4.png", dlin*2, dlin*2 )
@@ -247,7 +260,7 @@ local statGraf
 local function closeGraf(event)
   print("closeGraf")
   display.remove(grafScreen) grafScreen=nil
-  display.remove(quizScreen) quizScreen=nil
+  display.remove(quizGame) quizGame=nil
   if event.target.name=="Tasks" then
     timer.performWithDelay( 1, function()
       q.event.group.on("levelsButtons")
@@ -265,7 +278,7 @@ end
 local function openGraf()
   print("shhow")
   if grafScreen~=nil then return end
-  -- display.remove(quizScreen) quizScreen=nil
+  -- display.remove(quizGame) quizGame=nil
   -- q.event.group.off("levelsButtons")
   grafScreen = display.newGroup()
   adminGroup:insert( grafScreen )
@@ -301,7 +314,7 @@ local function openGraf()
   for i=1, #dates do
     print(dates[i])
     if statGraf[dates[i]]~=nil then
-      local j = #statGraf[dates[i]]
+      local j = statGraf[dates[i]]
       j = j<7 and j or 6
       local a = display.newCircle(grafScreen, xPos[i], yPos[j], 15, 20)
       a.fill=q.CL"9ff594"
@@ -319,22 +332,30 @@ local function openGraf()
   line.strokeWidth = 8
 end
 
-local statistic
+local statistic, notWorkingLabel, workingLabel
 local function toAdmin()
   hideLayer("admin")
   timer.performWithDelay( 2, function()
     nowScene = "admin"
     mainLabel.text = "Администрирование"
     -- profileButton:setFillColor( unpack( c.blue ) )
-    -- if statistic>50 then statistic=49 end
-    local left = statistic>50
+    
+    -- statistic = 25
     local thisStat = statistic
-    if left then thisStat = 100 - thisStat end
+    thisStat = thisStat == 0 and 1 or thisStat
+
+    if statistic>(50+12.5) then
+      notWorkingLabel.y = 110
+      workingLabel.y = 300
+    else
+      notWorkingLabel.y = 370
+      workingLabel.y = 180
+    end
     local i = 0
-    timer.performWithDelay( 150/5, function()
+    timer.performWithDelay( 150/30, function()
       i = i + 1
       display.remove(citc)
-      genCircle(i, 180, 240, left) 
+      genCircle(i, 180, 240, false) 
     end, thisStat )
     adminGroup.alpha = 1
     openGraf()
@@ -418,7 +439,7 @@ end
 
 local function closeQuiz(event)
   print("quizScreen")
-  display.remove(quizScreen) quizScreen=nil
+  display.remove(quizGame) quizGame=nil
   if event.target.name=="Tasks" then
     -- timer.performWithDelay( 1, function()
     --   q.event.group.on("levelsButtons")
@@ -431,16 +452,7 @@ local function jsonForUrl(val)
   return q.jsonForUrl( json.encode( val ) )
 end
 
-local function networkListener( event )
- 
-    if ( event.isError)  then
-    else
-      local myNewData = event.response
 
-    end
-     
-    return
-end
 local function sendQuiz(name, quiz)
   if name==nil then name = quiz.title end
   local quests = jsonForUrl( quiz.questions )
@@ -448,12 +460,12 @@ local function sendQuiz(name, quiz)
   local praises = jsonForUrl( quiz.praises )
   -- print(server)
   -- print("http://"..server.."/dashboard/testUpload.php?title="..name.."&questions="..quests.."&answers="..answers.."&praises"..praises)
-  network.request( "http://"..server.."/dashboard/testUpload.php?title="..name.."&questions="..quests.."&answers="..answers.."&praises="..praises, "GET", networkListener )
+  network.request( "http://"..server.."/dashboard/testUpload.php?title="..name.."&questions="..quests.."&answers="..answers.."&praises="..praises, "GET" )
 
 end
 
 
-local allQuiz = {}
+local allQuiZz = {}
 local topMain
 
 
@@ -464,10 +476,13 @@ local function startQuiz(event)
   searchField.x = -1000
 	searchField.y = -1000
 
-  quizInfo = allQuiz[event.target.i]
+  quizInfo = allQuizz[event.target.i]
   -- sendQuiz(nil,quizInfo)
   mainLabel.text = "Тест"
 
+
+  -- if quizScreen==nil then quizScreen = display.newGroup() uiGroup:insert(quizScreen) quizScreen:toBack( ) end
+  -- local quizGame = quizScreen
   quizGame = display.newGroup()
   quizScreen:insert( quizGame )
 
@@ -614,8 +629,13 @@ local function startQuiz(event)
 
     labelQuest.text = finishLabel
     backQuest:addEventListener( "tap", function()
+      mainLabel.text = "Навигация"
+      searchField.x = searchField.pos.x
+      searchField.y = searchField.pos.y
+      backQuest.alpha = 0
+      labelQuest.alpha = 400
       display.remove( quizGame )
-      timer.performWithDelay( 1, function()
+      timer.performWithDelay( 50, function()
         q.event.group.on("testsButtons")
       end )
     end )
@@ -687,24 +707,19 @@ local function testsResponder(event)
     print( "Error!" )
   else
     local myNewData = event.response
-    -- print("Server:"..myNewData)
-    allQuiz = (json.decode(myNewData))
-    -- print("Have tests")
-    for k,v in pairs(news[1]) do
-      print(k,v)
+    allQuizz = (json.decode(myNewData))
+  
+    for i=1, #allQuizz do
+      allQuizz[i].answers = json.decode(allQuizz[i].answers) 
+      allQuizz[i].questions = json.decode(allQuizz[i].questions)
+      allQuizz[i].praises = json.decode(allQuizz[i].praises)
     end
-    for i=1, #allQuiz do
-      allQuiz[i].answers = json.decode(allQuiz[i].answers) 
-      allQuiz[i].questions = json.decode(allQuiz[i].questions)
-      allQuiz[i].praises = json.decode(allQuiz[i].praises)
-    end
-    news = allQuiz
-    local newsGroup = display.newGroup()
-    testsGroup:insert(newsGroup)
+    local allTestGroup = display.newGroup()
+    testsGroup:insert(allTestGroup)
 
     local testHeight = 520
-    for i=1, #news do
-      local images = display.newRoundedRect(newsGroup, q.cx, 335+(i-1)*(testHeight+30), q.fullw-30*2,testHeight,12)
+    for i=1, #allQuizz do
+      local images = display.newRoundedRect(allTestGroup, q.cx, 335+(i-1)*(testHeight+30), q.fullw-30*2,testHeight,12)
       images.anchorY = 0
       images.fill = c.gray
       images.i = i
@@ -718,30 +733,30 @@ local function testsResponder(event)
       }
       images.fill = paint
 
-      local front = display.newRoundedRect(newsGroup, q.cx, images.y+images.height, images.width,140,12)
+      local front = display.newRoundedRect(allTestGroup, q.cx, images.y+images.height, images.width,140,12)
       front.anchorY=1
       front.fill = c.gray2
 
-      local frontUp = display.newRect(newsGroup, q.cx, front.y-front.height, images.width,front.height*.5)
+      local frontUp = display.newRect(allTestGroup, q.cx, front.y-front.height, images.width,front.height*.5)
       frontUp.anchorY=0
       frontUp.fill = c.gray2
 
-      local newsLabel = display.newText({
-        parent = newsGroup,
-        text = news[i].title,
+      local testsLabel = display.newText({
+        parent = allTestGroup,
+        text = allQuizz[i].title,
         x = 60,
         y = front.y - front.height*.5 - 25,
         font = "ubuntu_m.ttf",
         fontSize = 16*2,
         })
-      newsLabel.anchorX = 0
-      newsLabel:setFillColor( unpack( c.black ) )
+      testsLabel.anchorX = 0
+      testsLabel:setFillColor( unpack( c.black ) )
 
       local dateLabel = display.newText({
-        parent = newsGroup,
-        text = news[i].date,
+        parent = allTestGroup,
+        text = allQuizz[i].date,
         x = 60,
-        y = newsLabel.y+45,
+        y = testsLabel.y+45,
         font = "roboto_r.ttf",
         fontSize = 13*2,
         })
@@ -749,13 +764,15 @@ local function testsResponder(event)
       dateLabel:setFillColor( unpack( q.CL"818C99" ) )
     end
     q.event.group.on("testsButtons")
-    if #news>2 then
-      maxUp = -(testHeight+30)*(#news-2)+160
-      newsGroup:addEventListener("touch", scroll)
+    local screenSize = q.fullh-330-125
+    if #allQuizz>2 then
+      allTestGroup.scrolltag = "test"
+      scrollInfo.test.maxUp = (screenSize-(testHeight+30)*(#allQuizz))
+      allTestGroup:addEventListener("touch", scroll)
     end
     topMain:toFront()
 
-    
+      
   end
 end
 
@@ -764,35 +781,11 @@ local function statisticResponder(event)
     print( "Error!" )
   else
     local myNewData = event.response
+    print("Users ",myNewData)
     local statAll = json.decode( myNewData )
-    -- print("aaaaa",statAll["2"])
     local stat = statAll["1"]
-    local grafInfo = statAll["2"]
+    statGraf = statAll["2"]
     
-    statGraf = {}
-    local i = 0
-    for k, v in pairs(grafInfo) do
-      i = i + 1
-      print(k,v)
-      grafInfo[i] = json.decode( v )
-      for k, v in pairs(grafInfo[i]) do
-        print(k)
-        if statGraf[k]==nil then
-          print("new")
-          statGraf[k]={1}
-        else
-          print("add")
-          statGraf[k][#statGraf[k]+1]=1
-        end
-      end
-      -- print( json.decode( v )["2022-05-04"])
-    end
-    print(#statGraf)
-
-    for i=1, #grafInfo do
-
-    end
-    -- statGraf = grafInfo
     
     local sum = 0
     for i=1, #stat do
@@ -800,29 +793,41 @@ local function statisticResponder(event)
     end
     local working = q.round(sum/#stat*100)
     local notWorking = 100 - working
-    -- print("stat",#stat,sum)
+    print("stat",#stat,sum)
 
-    local workingLabel = display.newText({
+    workingLabel = display.newText({
       parent = adminGroup,
       text = "- Занятых "..working.."%",
       x=290,
       y=180,
       font = "ubuntu_m.ttf",
       fontSize = 16*2} )
-  workingLabel:setFillColor( unpack( c.black) )
-  workingLabel.anchorX=0
+    workingLabel:setFillColor( unpack( c.black) )
+    workingLabel.anchorX=0
 
-  local notWorkingLabel = display.newText({
+    notWorkingLabel = display.newText({
       parent = adminGroup,
       text = "- Безработных "..notWorking.."%",
       x=130,
       y=370,
       font = "ubuntu_m.ttf",
       fontSize = 16*2} )
-  notWorkingLabel:setFillColor( unpack( c.black) )
-  notWorkingLabel.anchorX=0
+    notWorkingLabel:setFillColor( unpack( c.black) )
+    notWorkingLabel.anchorX=0
+
+    local statLabel = display.newText( {
+      parent = adminGroup,
+      text = "Трудоустроено за сутки",
+      x = 35,
+      y = 530,
+      font = "ubuntu_m.ttf",
+      fontSize = 20*2,
+      } )
+
+    statLabel:setFillColor( unpack( c.black) )
+    statLabel.anchorX = 0
     
-  statistic = working
+    statistic = working
   end
 end
 
@@ -851,12 +856,34 @@ local function createTextFiled(x,y,paramText,ParamField)
 end
 
 local incorrectChange
+local function showPassWarning(text, time)
+  timer.cancel( "passwarn" )
+  transition.cancel( "passwarn" )
+  
+  time = time~=nil and time or 2000
+  incorrectChange.text=text
+  incorrectChange.alpha=1
+  incorrectChange.fill.a=1
+  timer.performWithDelay( time, 
+  function()
+    transition.to(incorrectChange.fill,{a=0,time=500, tag="passwarn"} )
+  end, 1, "passwarn")
+end
 local function changeResponder(event)
   if ( event.isError) then
-    print( "Error!" )
+    print( "Error!", event.response)
   else
-    myNewData = event.response
-    print("Server:"..myNewData)
+    local myNewData = event.response
+    -- print("Server:"..myNewData)
+    if myNewData=="Incorrect\n\n\n" then
+      showPassWarning("Текущий пароль не верен")
+    elseif myNewData=="PasswordChanged\n\n\n" then
+      -- showPassWarning("Пароль изменён успешно!")
+      closePCMenu()
+    else
+    -- elseif myNewData=="User not found\n\n\n" then
+      showPassWarning("Упс.. Что-то пошло не так")
+    end
 
   end
 end
@@ -922,6 +949,11 @@ function scene:create( event )
 
   local downBack = display.newRect(uiGroup, q.cx, q.fullh, q.fullw, 125)
   downBack.anchorY = 1
+
+  local shadow = display.newImageRect( uiGroup, "img/shadow.png", q.fullw, q.fullw*.0611 )
+  shadow.x = q.cx
+  shadow.y = q.fullh-downBack.height
+  shadow.anchorY=1
   
   mainButton = display.newImageRect( uiGroup, "img/main.png", 58*2, 44*2 )
   mainButton.y = q.fullh - mainButton.height*.5-20
@@ -1024,7 +1056,8 @@ function scene:create( event )
 	searchField.hasBackground = false
 	searchField.placeholder = "Поиск"
 	searchField.font = native.newFont( "ubuntu_r.ttf",16*2)
-	searchField:resizeHeightToFitFont()
+  searchField:resizeHeightToFitFont()
+	-- searchField.height = 48
 	searchField:setTextColor( 0, 0, 0 )
 
 	
@@ -1040,7 +1073,7 @@ function scene:create( event )
       print( "Error!" )
     else
       local myNewData = event.response
-      print("Serddder:",myNewData)
+      -- print("Serddder:",myNewData)
       local dataKurs = (json.decode(myNewData))
       
       local space = 70
@@ -1080,7 +1113,7 @@ function scene:create( event )
     end
   end
   if isDevice then
-    local data = q.getConnection("tests")
+    local data = q.getConnection("kurses")
     kursesAdd({response=data})
   else
     network.request( "http://"..server.."/dashboard/kursesDownload.php", "GET",kursesAdd )
@@ -1090,100 +1123,170 @@ function scene:create( event )
 	-- ========================
   -- ------------------------
   -- ========================
+  local backTopNews = display.newRect(eventGroup, q.cx, 0, q.fullw, 110)
+  backTopNews.anchorY=0
+  backTopNews.fill = c.white
 
+  local newsBodys = {}
+  local allHeight = 130
+  local function drawNews(group, y, title, date)
+    local thisNews = display.newGroup()
+    group:insert( thisNews )
+    thisNews.y = y
+    table.insert( newsBodys, 1, thisNews )
+
+    local newsLabel = display.newText({
+      parent = thisNews,
+      text = title,
+      x = 60,
+      y = 30,
+      width = q.fullw-100,
+      font = "ubuntu_m.ttf",
+      fontSize = 16*2,
+      })
+    newsLabel.anchorX = 0
+    newsLabel.anchorY = 0
+    newsLabel:setFillColor( unpack( c.black ) )
+
+    local back = display.newRoundedRect(thisNews, q.cx, 0, q.fullw-60, 120+newsLabel.height, 12)
+    back.anchorY=0
+    back.fill = c.gray2
+    back:toBack()
+    allHeight = allHeight + back.height + 30
+
+    local dateLabel = display.newText({
+      parent = thisNews,
+      text = date,
+      x = 60,
+      y = back.height-50,
+      font = "roboto_r.ttf",
+      fontSize = 13*2,
+      })
+    dateLabel.anchorX = 0
+    dateLabel:setFillColor( unpack( q.CL"818C99" ) )
+  end
+  local viewSpace = q.fullh - backTopNews.height - downBack.height
+  local function checkIfNeedScroll(group)
+    -- print("hah",viewSpace,allHeight,viewSpace-allHeight)
+    if allHeight>viewSpace then
+      group.scrolltag = "news"
+      scrollInfo.news.maxUp = viewSpace-allHeight
+      group:addEventListener("touch", scroll)
+    end
+  end
   local function newsAdd(event)
     if ( event.isError)  then
-      print( "Error!" )
+      print( "Error:", event.response)
     else
       local myNewData = event.response
-      print("Serddder:",myNewData)
-      local realEvent = (json.decode(myNewData))
-        
+      -- print("news",myNewData)
+      local inverseRealEvent = (json.decode(myNewData))
+      local realEvent = {}
+      local j = 1
+      for i=#inverseRealEvent, 1, -1 do
+        realEvent[j] = inverseRealEvent[i] -- Переворачиваем список чтобы сначало были свежие новости
+        j = j + 1
+      end
+      j = nil
+
       local testHeight = 520
       local events = display.newGroup()
       eventGroup:insert(events)
+      events:toBack( )
       for i=1, #realEvent do
-
-        local back = display.newRoundedRect(events, q.cx, 160+(i-1)*230, q.fullw-60, 200, 12)
-        back.anchorY=0
-        back.fill = c.gray2
-
-        local newsLabel = display.newText({
-          parent = events,
-          text = realEvent[i].title,
-          x = 60,
-          y = back.y+back.height*.25+15,
-          width = q.fullw-100,
-          font = "ubuntu_m.ttf",
-          fontSize = 16*2,
-          })
-        newsLabel.anchorX = 0
-        newsLabel:setFillColor( unpack( c.black ) )
-
-        local dateLabel = display.newText({
-          parent = events,
-          text = realEvent[i].datePost,
-          x = 60,
-          y = back.y+back.height-50,
-          font = "roboto_r.ttf",
-          fontSize = 13*2,
-          })
-        dateLabel.anchorX = 0
-        dateLabel:setFillColor( unpack( q.CL"818C99" ) )
+        drawNews(events, allHeight, realEvent[i].title, realEvent[i].datePost)
       end
-      if account.lic=="admin" then
-        local down = display.newRect(eventGroup, q.cx, q.fullh, q.fullw, 270)
-        down.anchorY=1
-        -- down.fill=c.gray
 
-        local changeWorkButton, label = createButton(eventGroup, "СОЗДАТЬ НОВОСТЬ",q.fullh-150,"id")
-        changeWorkButton:addEventListener( "tap", function()
-          changeWorkButton.alpha = 0
-          label.alpha = 0
+      if account.lic=="admin" then
+        local publicated = 0
+
+        local down = display.newRect(eventGroup, q.cx, q.fullh, q.fullw, 260)
+        down.anchorY=1
+
+        local createNewsButton, labelNews = createButton(eventGroup, "СОЗДАТЬ НОВОСТЬ",q.fullh-150,"id")
+        createNewsButton:addEventListener( "tap", function()
+          createNewsButton.alpha = 0
+          labelNews.alpha = 0
           mainLabel.text = "Создание новости"
           local createNewsGroup = display.newGroup()
           eventGroup:insert(createNewsGroup)
 
           local back = display.newRect(createNewsGroup, q.cx, q.cy, q.fullw, q.fullh)
 
-          local titleField = native.newTextField(40, 150, back.width-80, 90)
+          local backTitle = display.newRoundedRect(createNewsGroup, 40, 180, q.fullw-40*2, 90, 12)
+          backTitle.anchorX=0
+          backTitle.fill = c.gray2
+
+          local titleField = native.newTextField(60, 180, back.width-120, 90)
           createNewsGroup:insert( titleField )
           titleField.anchorX=0
           titleField.pos = {x=titleField.x, y=titleField.y}
-          titleField.isEditable=true
+          titleField.isEditable = true
           titleField.hasBackground = false
           titleField.placeholder = "Название"
           titleField.font = native.newFont( "ubuntu_r.ttf",16*2)
           titleField:resizeHeightToFitFont()
-          titleField:setTextColor( 0, 0, 0 )
+          titleField:setTextColor( .5, .5, .5 )
 
-          local longField = native.newTextBox(40, 250-45, back.width-80, 190)
+          local backLong = display.newRoundedRect(createNewsGroup, 40, 300-45, q.fullw-40*2, 630, 12)
+          backLong.anchorX=0
+          backLong.anchorY=0
+          backLong.fill = c.gray2
+
+          local longField = native.newTextBox(60, 300-45+20, back.width-120, 590)
           createNewsGroup:insert( longField )
-          longField.anchorX=0
-          longField.anchorY=0
+          longField.anchorX = 0
+          longField.anchorY = 0
           longField.pos = {x=longField.x, y=longField.y}
-          longField.isEditable=true
+          longField.isEditable = true
           longField.hasBackground = false
           longField.placeholder = "Тело новости"
           longField.font = native.newFont( "ubuntu_r.ttf",16*2)
-          longField:setTextColor( 0, 0, 0 )
+          longField:setTextColor( .5, .5, .5 )
 
           local submitNews, label = createButton(createNewsGroup, "ОПУБЛИКОВАТЬ",q.fullh-150-120,"id")
           submitNews:addEventListener( "tap", function() 
+            publicated = publicated + 1
             local time = os.date("!*t",os.time())
             time = time.day.." "..os.date("%B",os.time()).." "..time.year
-            network.request( "http://"..server.."/dashboard/newsUpload.php?title="..titleField.text.."&date="..time, "GET", changeResponder )
+            
+
+            inverseRealEvent[#inverseRealEvent+1] = {title=titleField.text, datePost=time, text=""}
+            table.insert(realEvent, 1, {title=titleField.text, datePost=time, text=""} )
+            if isDevice then
+              q.postConnection("news",inverseRealEvent)
+            else
+              network.request( "http://"..server.."/dashboard/newsUpload.php?title="..titleField.text.."&date="..time, "GET" )
+            end
+
+            local before = allHeight+0
+            drawNews(events, 130, titleField.text, time)
+            local blockHeight = allHeight - before - 30
+            for i=2, #newsBodys do
+              newsBodys[i].y = newsBodys[i].y + blockHeight + 30
+            end
+            allHeight = allHeight
+            checkIfNeedScroll(events)
+            
+            mainLabel.text = "События"
+            display.remove(createNewsGroup)
+            createNewsButton.alpha = 1
+            labelNews.alpha = 1
           end)
+          closeCN = function()
+            display.remove(createNewsGroup)
+            createNewsButton.alpha = 1
+            labelNews.alpha = 1
+          end
           local cancelNews, label = createButton(createNewsGroup, "ОТМЕНА",q.fullh-150,"id")
           cancelNews:addEventListener( "tap", function()
             mainLabel.text = "События"
-            display.remove(createNewsGroup)
-            changeWorkButton.alpha = 1
-
+            closeCN()
           end )
 
         end)
       end
+      checkIfNeedScroll(events)
       -- q.event.group.on("testsButtons")
       if #realEvent>2 then
         -- maxUp = -(testHeight+30)*(#realEvent-2)+160
@@ -1192,8 +1295,8 @@ function scene:create( event )
     end
   end
   if isDevice then
-    -- local data = q.getConnection("tests")
-    -- kursesAdd({response=data})
+    local data = q.getConnection("news")
+    newsAdd({response=data})
   else
     network.request( "http://"..server.."/dashboard/newsDownload.php", "GET",newsAdd )
   end
@@ -1312,13 +1415,16 @@ function scene:create( event )
   	infoLabel.fill = c.black
   end
 
+  local line = display.newRect( profileGroup, q.cx,510+50*(#infoShow-1)+70, q.fullw-100, 6 )
+  line.fill = c.gray2
+
   -- local createButton(profileGroup, "ИЗМЕНИТЬ АВАТАРКУ",740,"id")
-  local change = createButton(profileGroup, "СМЕНИТЬ ПАРОЛЬ",865-125,"id")
-  local logOut = createButton(profileGroup, "ВЫЙТИ",865,"id")
+  local change = createButton(profileGroup, "СМЕНИТЬ ПАРОЛЬ",925-125,"id")
+  local logOut = createButton(profileGroup, "ВЫЙТИ",925,"id")
   
-  
+  local changeWorkButton, workStatusLabel
   if account.lic=="user" then
-    local changeWorkButton, label = createButton(profileGroup, account.working=="1" and "ПОТЕРЯЛ РАБОТУ" or "УСТРОИЛСЯ НА РАБОТУ",865+125,"id")
+    changeWorkButton, workStatusLabel = createButton(profileGroup, account.working=="1" and "ПОТЕРЯЛ РАБОТУ" or "УСТРОИЛСЯ НА РАБОТУ",925+125,"id")
     changeWorkButton:addEventListener( "tap", function()
       changeWorkButton.fill = q.CL"4d327a"
       local r,g,b = unpack( c.blue )
@@ -1326,7 +1432,7 @@ function scene:create( event )
       function()
         transition.to(changeWorkButton.fill,{r=r,g=g,b=b,time=300} )
       end)
-      display.remove(label)
+      display.remove(workStatusLabel)
       local newText
       if account.working=="1" then
         account.working="0"
@@ -1335,7 +1441,7 @@ function scene:create( event )
         account.working="1"
         newText = "ПОТЕРЯЛ РАБОТУ"
       end
-      label = textWithLetterSpacing( {
+      workStatusLabel = textWithLetterSpacing( {
         parent = profileGroup, 
         text = newText, 
         x = changeWorkButton.x+changeWorkButton.width*.5, 
@@ -1344,7 +1450,23 @@ function scene:create( event )
         fontSize = 14*2
         }, 10, .5)
       q.saveLogin(account)
-      network.request( "http://"..server.."/dashboard/changeWork.php?email="..account.email, "GET", changeResponder )
+      if isDevice then
+        -- {"1":["0","1","0"],"2":["{\"2022-02-02\":1,}","{\"2022-02-02\":1,}","{\"2022-02-02\":1,}"]}
+
+        local statData = json.decode( q.getConnection("static") )
+        statData["1"][tonumber(account.id)] = account.working
+        if account.working=="1" then
+          local time = getDay(0)
+          if statData["2"][time]~=nil then
+            statData["2"][time] = statData["2"][time] + 1
+          else
+            statData["2"][time] = 1
+          end
+        end
+        q.postConnection("static", statData)
+      else
+        network.request( "http://"..server.."/dashboard/changeWork.php?email="..account.email, "GET" )
+      end
 
     end )
   end
@@ -1352,11 +1474,19 @@ function scene:create( event )
   logOut:addEventListener( "tap", function()
     q.saveLogin({})
     composer.gotoScene( "signin"  )
+    composer.removeScene( "menu"  )
   end )
 
+  local adminBut
   change:addEventListener( "tap", function() 
     change.alpha=0
     logOut.alpha=0
+    if changeWorkButton then
+      changeWorkButton.alpha=0
+    end
+    if adminBut then
+      adminBut.alpha=0
+    end
     local changeLayer = display.newGroup()
     profileGroup:insert(changeLayer)
 
@@ -1370,7 +1500,7 @@ function scene:create( event )
     oldPass.pos = {x=oldPass.x, y=oldPass.y}
     oldPass.isEditable=true
     oldPass.hasBackground = false
-    oldPass.placeholder = "Старый пароль"
+    oldPass.placeholder = "Текущий пароль"
     oldPass.font = native.newFont( "ubuntu_r.ttf",16*2)
     oldPass:resizeHeightToFitFont()
     oldPass:setTextColor( 0, 0, 0 )
@@ -1392,7 +1522,7 @@ function scene:create( event )
     newPass:setTextColor( 0, 0, 0 )
 
     
-
+    
 
     local okButton = createButton(changeLayer, "ОК",965-50,"okPass")
     okButton:addEventListener( "tap", function()
@@ -1402,16 +1532,35 @@ function scene:create( event )
       function()
         transition.to(okButton.fill,{r=r,g=g,b=b,time=300} )
       end)
-      -- print("http://"..server.."/dashboard/changePassword.php?oldpassword="..oldPass.text.."&newpassword="..newPass.text.."&email="..account[1])
-      network.request( "http://"..server.."/dashboard/changePassword.php?oldpassword="..oldPass.text.."&newpassword="..newPass.text.."&email="..account.email, "GET", changeResponder )
+
+      local textOldPass, textNewPass = oldPass.text, newPass.text
+      if #textOldPass==0 then
+        showPassWarning("Введите текущий пароль")
+      elseif #textNewPass==0 then
+        showPassWarning("Введите новый пароль")
+      elseif #textOldPass<8 or #textNewPass<8 then
+        showPassWarning("Пароли от 8 символов")
+      elseif textOldPass==textNewPass then
+        showPassWarning("Пароли не могут совпадать")
+      else
+        network.request( "http://"..server.."/dashboard/changePassword.php?oldpassword="..oldPass.text.."&newpassword="..newPass.text.."&email="..account.email, "GET", changeResponder )
+      end
+
     end )
 
-    local cancelButton = createButton(changeLayer, "ОТМЕНА",965+100-30,"cancelPass")
-    cancelButton:addEventListener( "tap", function()
+    closePCMenu = function()
       display.remove(changeLayer)
       change.alpha=1
       logOut.alpha=1
-    end )
+      if changeWorkButton then
+        changeWorkButton.alpha=1
+      end
+      if adminBut then
+        adminBut.alpha=1
+      end
+    end
+    local cancelButton = createButton(changeLayer, "ОТМЕНА",965+100-30,"cancelPass")
+    cancelButton:addEventListener( "tap", closePCMenu )
 
     incorrectChange = display.newText({
       parent = changeLayer,
@@ -1421,21 +1570,23 @@ function scene:create( event )
       font = "ubuntu_m.ttf",
       fontSize = 16*2} )
     incorrectChange:setFillColor( unpack( q.CL"e07682") )
-    -- incorrectChange.anchorX=0
+    incorrectChange.anchorX=0
+    incorrectChange.alpha=0
   end)
 
 
 
   if account.lic=="admin" then
-    local adminBut = createButton(profileGroup, "АДМИН-МЕНЮ",865+125,"id")
+    adminBut = createButton(profileGroup, "АДМИН-МЕНЮ",925+125,"id")
     adminBut:addEventListener( "tap", toAdmin )
     -- -- --
     if isDevice then
-      local data = q.getConnection("static")
-      statisticResponder({response=data --[[]]})
-    else
+        local data = q.getConnection("static")
+        statisticResponder({response=data --[[]]})
+      else
       network.request( "http://"..server.."/dashboard/allWorking.php", "GET", statisticResponder )
     end
+
   end
 
   -- ========================
@@ -1459,7 +1610,9 @@ function scene:show( event )
       -- toKurs()
     toEvent()
 		-- toChat()
-    -- toAdmin()
+
+    timer.performWithDelay( 100, 
+    toAdmin )
 	end
 end
 
@@ -1473,6 +1626,7 @@ function scene:hide( event )
 
 	elseif ( phase == "did" ) then
     composer.removeScene( "menu" )
+    print("remove")
 
 	end
 end
