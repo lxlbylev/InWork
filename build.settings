@@ -46,11 +46,11 @@ settings =
 	{
 
 	},
-	-- splashScreen = 
- --    {
- --        enable = true,
- --        image = "lev.png"
- --    },
+	splashScreen = 
+    {
+        enable = true,
+        image = "splash.png"
+    },
     --build =
     --{
       --  neverStripDebugInfo = true,

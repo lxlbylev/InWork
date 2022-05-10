@@ -10,8 +10,18 @@ local composer = require( "composer" )
 local scene = composer.newScene()
 local isDevice = true--(system.getInfo("environment") == "device")
 
-local backGroup, mainGroup, testsGroup, kursGroup, eventGroup, chatGroup, profileGroup, adminGroup, uiGroup, quizScreen, quizGame
 
+local backGroup
+
+local mainGroup, testsGroup, quizzScreen, quizzGame, kursesGroup, kursScreen, kursGroup 
+local eventGroup
+local chatGroup
+local profileGroup, adminGroup
+
+local uiGroup
+
+
+local json = require( "json" )
 local q = require"base"
 local server
 
@@ -94,20 +104,27 @@ local nowScene = "menu"
 
 local mainButton, eventButton, chatButton, profileButton
 local graf
-local quizGame, quizCreate
+local quizzGame, quizzCreate
 local closePCMenu = function() end
 local closeCN = function() end
 local function hideLayer(toScene)
-  if quizGame~=nil then
-    q.event.group.on("testsButtons")
-    searchField.x = searchField.pos.x
-    searchField.y = searchField.pos.y
-	end
+
   if nowScene==toScene then return end
 	timer.performWithDelay( 1, function()
-		if nowScene == "menu" then
+    print("hiding from "..nowScene.." to "..toScene)
+    native.setKeyboardFocus( nil )
+    if nowScene == "test" then
+      q.event.group.on("testsButtons")
+      mainLabel.alpha = 1
+      display.remove(quizzGame) quizzGame=nil
+    elseif nowScene == "kurs" then
+      q.event.group.on("downBar")
+      q.event.group.on("kursesButtons")
+      mainLabel.alpha = 1
+      mainGroup.alpha = 1
+      display.remove(kursGroup) kursGroup=nil
+		elseif nowScene == "menu" then
 
-      display.remove(quizGame) quizGame=nil
 	  	mainButton:setFillColor( unpack( c.grayButtons ) )
 			searchField.x = -1000
 			searchField.y = -1000
@@ -129,13 +146,13 @@ local function hideLayer(toScene)
       adminGroup.alpha = 0
       display.remove(graf)
 		end
+    nowScene = toScene
 	end )
 end 
 
 local function toMain()
 	hideLayer("menu")
 	timer.performWithDelay( 2, function()
-		nowScene = "menu"
 		mainLabel.text = "Навигация"
 		mainGroup.alpha = 1
 		mainButton:setFillColor( unpack( c.blue ) )
@@ -147,7 +164,6 @@ end
 local function toEvent()
 	hideLayer("event")
 	timer.performWithDelay( 2, function()
-		nowScene = "event"
 		mainLabel.text = "События"
 	  eventButton:setFillColor( unpack( c.blue ) )
 		eventGroup.alpha = 1
@@ -157,7 +173,6 @@ end
 local function toChat()
 	hideLayer("chat")
 	timer.performWithDelay( 2, function()
-		nowScene = "chat"
 		mainLabel.text = "Чат"
 	  chatButton:setFillColor( unpack( c.blue ) )
 		chatGroup.alpha = 1
@@ -260,10 +275,11 @@ local statGraf
 local function closeGraf(event)
   print("closeGraf")
   display.remove(grafScreen) grafScreen=nil
-  display.remove(quizGame) quizGame=nil
+  display.remove(quizzGame) quizzGame=nil
   if event.target.name=="Tasks" then
     timer.performWithDelay( 1, function()
       q.event.group.on("levelsButtons")
+      q.event.group.on("kursesButtons")
     end)
   end
 end
@@ -278,7 +294,7 @@ end
 local function openGraf()
   print("shhow")
   if grafScreen~=nil then return end
-  -- display.remove(quizGame) quizGame=nil
+  -- display.remove(quizzGame) quizzGame=nil
   -- q.event.group.off("levelsButtons")
   grafScreen = display.newGroup()
   adminGroup:insert( grafScreen )
@@ -336,7 +352,6 @@ local statistic, notWorkingLabel, workingLabel
 local function toAdmin()
   hideLayer("admin")
   timer.performWithDelay( 2, function()
-    nowScene = "admin"
     mainLabel.text = "Администрирование"
     -- profileButton:setFillColor( unpack( c.blue ) )
     
@@ -370,7 +385,7 @@ local function toKurs()
   if navMenuNow == "kurs" then return end
   navMenuNow = "kurs"
   testsGroup.alpha = 0
-  kursGroup.alpha = 1
+  kursesGroup.alpha = 1
   transition.to(selectedRect,{x=q.cx,time=500, transition=easing.inOutBack })
   usLabel.fill = c.gray
   vacLabel.fill = {0,0,0}
@@ -379,7 +394,7 @@ local function toTests()
   if navMenuNow == "tests" then return end
   navMenuNow = "tests"
   testsGroup.alpha = 1
-  kursGroup.alpha = 0
+  kursesGroup.alpha = 0
   transition.to(selectedRect,{x=0,time=300, transition=easing.inOutBack})
   vacLabel.fill = c.gray
   usLabel.fill = {0,0,0}
@@ -437,27 +452,18 @@ end
 
 
 
-local function closeQuiz(event)
-  print("quizScreen")
-  display.remove(quizGame) quizGame=nil
-  if event.target.name=="Tasks" then
-    -- timer.performWithDelay( 1, function()
-    --   q.event.group.on("levelsButtons")
-    -- end)
-  end
-end
-local json = require( "json" )
+
 
 local function jsonForUrl(val)
   return q.jsonForUrl( json.encode( val ) )
 end
 
 
-local function sendQuiz(name, quiz)
-  if name==nil then name = quiz.title end
-  local quests = jsonForUrl( quiz.questions )
-  local answers = jsonForUrl( quiz.answers )
-  local praises = jsonForUrl( quiz.praises )
+local function sendQuizz(name, quizz)
+  if name==nil then name = quizz.title end
+  local quests = jsonForUrl( quizz.questions )
+  local answers = jsonForUrl( quizz.answers )
+  local praises = jsonForUrl( quizz.praises )
   -- print(server)
   -- print("http://"..server.."/dashboard/testUpload.php?title="..name.."&questions="..quests.."&answers="..answers.."&praises"..praises)
   network.request( "http://"..server.."/dashboard/testUpload.php?title="..name.."&questions="..quests.."&answers="..answers.."&praises="..praises, "GET" )
@@ -465,48 +471,85 @@ local function sendQuiz(name, quiz)
 end
 
 
-local allQuiZz = {}
+local allQuizz = {}
 local topMain
 
 
-local quizInfo = {}
-local function startQuiz(event)
+local quizzInfo = {}
+local function startQuizz(event)
   if event.y>(q.fullh-125) or event.y<330 then return end
   q.event.group.off("testsButtons")
   searchField.x = -1000
 	searchField.y = -1000
 
-  quizInfo = allQuizz[event.target.i]
-  -- sendQuiz(nil,quizInfo)
-  mainLabel.text = "Тест"
+  quizzInfo = allQuizz[event.target.i]
+  mainLabel.alpha = 0
 
 
-  -- if quizScreen==nil then quizScreen = display.newGroup() uiGroup:insert(quizScreen) quizScreen:toBack( ) end
-  -- local quizGame = quizScreen
-  quizGame = display.newGroup()
-  quizScreen:insert( quizGame )
+  -- if quizzScreen==nil then quizzScreen = display.newGroup() uiGroup:insert(quizzScreen) quizzScreen:toBack( ) end
+  -- local quizzGame = quizzScreen
+  hideLayer("test")
+  if quizzGame ~=nil then display.remove(quizzGame) end
+  quizzGame = display.newGroup()
+  quizzScreen:insert( quizzGame )
 
-  local backGround = display.newRect(quizGame, q.cx, q.cy, q.fullw, q.fullh)
+  local backGround = display.newRect(quizzGame, q.cx, q.cy, q.fullw, q.fullh)
   backGround.fill={.95}
 
-  local backQuest = display.newRoundedRect(quizGame, q.cx, 600,q.fullw-100,500,20)
-  backQuest.fill=q.CL"1E3090"
+  local grayBack = display.newRect( quizzGame, q.cx, 0, q.fullw, 370 )
+  grayBack.anchorY=0
+  grayBack.fill = {0}
+  grayBack.alpha = .15
 
-  local backL1 = display.newRoundedRect(quizGame, q.fullw*.25+10, 900,320,200,20)
+  local testwarnLabel = display.newText({
+    parent = quizzGame,
+    text = "Каркас теста.\nДизайн в разработке",
+    x=30,
+    y=100,
+    font="roboto_r.ttf",
+    align="left",
+    fontSize=24*2,
+  })
+  testwarnLabel:setFillColor( 1 )
+  testwarnLabel.anchorX=0
+  testwarnLabel.anchorY=0
+
+  local whiteTop = display.newRect( quizzGame, q.cx, 0, q.fullw, 80 )
+  whiteTop.anchorY=0
+
+  local countLabel = display.newText({
+    parent = quizzGame,
+    text = "Вопрос 1/4",
+    x=30,
+    y=40,
+    font="ubuntu_m.ttf",
+    fontSize=24*2,
+  })
+  countLabel:setFillColor( 0 )
+  countLabel.anchorX=0
+
+
+  local butWidth = 335
+  local butHeight = 220
+  local butY = 840
+  local backQuest = display.newRoundedRect(quizzGame, q.cx, 600,q.fullw-100, 320,30)
+  backQuest.fill=q.CL"6120FF"
+
+  local backL1 = display.newRoundedRect(quizzGame, q.fullw*.25+15, butY, butWidth,butHeight,30)
   backL1.anchorY=0
-  backL1.fill=q.CL"1E3090"
+  backL1.fill=q.CL"1CD0FF"
 
-  local backL2 = display.newRoundedRect(quizGame, q.fullw*.25+10, 900+250,320,200,20)
+  local backL2 = display.newRoundedRect(quizzGame, q.fullw*.25+15, butY+butHeight+35, butWidth,butHeight,30)
   backL2.anchorY=0
-  backL2.fill=q.CL"1E3090"
+  backL2.fill=q.CL"1D91FF"
 
-  local backR1 = display.newRoundedRect(quizGame, q.fullw*.75-15, 900,330,200,20)
+  local backR1 = display.newRoundedRect(quizzGame, q.fullw*.75-15, butY, butWidth,butHeight,30)
   backR1.anchorY=0
-  backR1.fill=q.CL"1E3090"
+  backR1.fill=q.CL"00C2FF"
 
-  local backR2 = display.newRoundedRect(quizGame, q.fullw*.75-15, 900+250,330,200,20)
+  local backR2 = display.newRoundedRect(quizzGame, q.fullw*.75-15, butY+butHeight+35, butWidth,butHeight,30)
   backR2.anchorY=0
-  backR2.fill=q.CL"1E3090"
+  backR2.fill=q.CL"346BFF"
   
   backL1.i=1
   backL2.i=2
@@ -514,18 +557,18 @@ local function startQuiz(event)
   backR2.i=4
 
   local labelQuest = display.newText( {
-    parent = quizGame, 
+    parent = quizzGame, 
     text ="Многократно повторяющаяся часть алгоритма", 
     x = q.cx, 
     y = backQuest.y, 
-    font = "roboto_r.ttf",
+    font = "roboto_m.ttf",
     fontSize = 50,
     align = "center",
-    width = backQuest.width
+    width = backQuest.width-100
     })
 
   local labelL1 = display.newText( {
-    parent = quizGame, 
+    parent = quizzGame, 
     text ="Объявления", 
     x = backL1.x, 
     y = backL1.y+backL1.height*.5, 
@@ -536,7 +579,7 @@ local function startQuiz(event)
     })
 
   local labelL2 = display.newText( {
-    parent = quizGame, 
+    parent = quizzGame, 
     text ="Циклы", 
     x = backL2.x, 
     y = backL2.y+backL2.height*.5, 
@@ -547,7 +590,7 @@ local function startQuiz(event)
     })
 
   local labelR1 = display.newText( {
-    parent = quizGame, 
+    parent = quizzGame, 
     text ="Условное выражение", 
     x = backR1.x, 
     y = backR1.y+backR1.height*.5, 
@@ -558,7 +601,7 @@ local function startQuiz(event)
     })
 
   local labelR2 = display.newText( {
-    parent = quizGame, 
+    parent = quizzGame, 
     text ="Переменная", 
     x = backR2.x, 
     y = backR2.y+backR2.height*.5, 
@@ -582,9 +625,9 @@ local function startQuiz(event)
   local function checkCorrect(event)
   	local i = event.target.i
     -- if i==correctNow then
-      event.target.fill=q.CL"93d9a6"
+      -- event.target.fill=q.CL"93d9a6"
       questionsComplete = questionsComplete + 1
-      local plus = quizInfo.answers[curretI].balance[i]
+      local plus = quizzInfo.answers[curretI].balance[i]
       -- print(curretI,i,plus[1],plus[1])
       rezult[plus[1]] = rezult[plus[1]] + plus[2]
     -- else
@@ -599,8 +642,10 @@ local function startQuiz(event)
     -- timer.performWithDelay(1000, waitAnswer)
   end
   local function finish()
-    backQuest.y = 400
-    labelQuest.y = 400
+    display.remove(grayBack)
+    countLabel.text = "Результаты"
+    backQuest.y = 300
+    labelQuest.y = 300
     backL1.alpha = 0
     backL2.alpha = 0
     backR1.alpha = 0
@@ -611,6 +656,12 @@ local function startQuiz(event)
     labelR1.alpha = 0
     labelR2.alpha = 0
 
+    local man = display.newImageRect( quizzGame, "img/man.png", 442, 1312 )
+    man.x, man.y = 50, q.fullh-180
+    man.anchorX, man.anchorY = 0, 1
+    man.xScale, man.yScale = .58, .58
+    man.alpha = .7
+
 		local sum = 0
 		local topMost = {}
 		for i=1, #rezult do
@@ -620,78 +671,74 @@ local function startQuiz(event)
 
 		local a = function (a, b) return (a[2] > b[2]) end
 		table.sort (topMost, a)
-		print(topMost[1][1],topMost[1][2])
+		-- print("the best",topMost[1][1],topMost[1][2])
 
 		local finishLabel = ""
-		for i=1, #rezult do
-			finishLabel = finishLabel .. quizInfo.praises.names[i].." "..q.round(rezult[i]/sum*100).."%\n"
-		end
+    local labels = {}
+    for j=1, #rezult do
+      local i = topMost[j][1]
+      -- print(i,"i")
+			labels[j] = display.newText( {
+        parent = quizzGame,
+        text = quizzInfo.praises.names[i].." "..q.round(rezult[i]/sum*100).."%\n",
+        x=0,
+        y=0,
+        font="roboto_m.ttf",
+        fontSize=20*2,
+		  } )
+      labels[j]:setFillColor( unpack( q.CL"503CFF" ) )
+      labels[j].anchorX = 0
+    end
 
-    labelQuest.text = finishLabel
-    backQuest:addEventListener( "tap", function()
-      mainLabel.text = "Навигация"
-      searchField.x = searchField.pos.x
-      searchField.y = searchField.pos.y
-      backQuest.alpha = 0
-      labelQuest.alpha = 400
-      display.remove( quizGame )
-      timer.performWithDelay( 50, function()
-        q.event.group.on("testsButtons")
-      end )
-    end )
+    labels[1].x = 320
+    labels[1].y = q.fullh-750
 
-    local praiseLabel = display.newText( {
-			parent = quizGame,
-			text = quizInfo.praises.names[topMost[1][1]].."\n"..quizInfo.praises.long[topMost[1][1]],
-			x=q.cx,
-			y=q.cy-180,
-			font = "ubuntu_m.ttf",
-      fontSize = 16*2,
-			width = q.fullw-30,
-      } )
-		praiseLabel.fill = c.black
-    praiseLabel.anchorY=0
+    labels[2].x = 340
+    labels[2].y = q.fullh-750+110
 
-    -- local today = os.date("*t",os.time())
-    -- local month, day = today.month, today.day
-    -- if tonumber(month)<10 then month = "0"..month end
-    -- if tonumber(day)<10 then month = "0"..day end
-    -- local todayString = today.year.."-"..month.."-"..day
-    -- local account = q.loadLogin()
-    -- -- network.request( "http://"..server.."/dashboard/xpCount.php?xpCount=".."15".."&email="..account[1].."&date="..todayString, "GET" )
-    -- stats = q.loadStats()
-    -- stats.xp = stats.xp + 15
-    -- q.saveStats(stats)
-    -- frontEXP.xScale = (stats.xp+1)/maxXp
-    -- percLabel.text = stats.xp .. "%"
-    -- if ((stats.xp)/maxXp)*100<20 then
-    --   percLabel.x = frontEXP.x+frontEXP.width*frontEXP.xScale-15
-    --   percLabel.anchorX=0 
-    --   percLabel:setFillColor( unpack(q.CL"acf0f6") )
-    -- else
-    --   percLabel.x = frontEXP.x+frontEXP.width*frontEXP.xScale-15
-    --   percLabel.anchorX=1
-    --   percLabel:setFillColor( unpack(q.CL"1E3090") )
-    -- end
+    labels[3].x = 305
+    labels[3].y = q.fullh-750+220
+
+    labelQuest.text = quizzInfo.praises.long[topMost[1][1]]
+
+    local exitBut = display.newRoundedRect(quizzGame, q.fullw-50, q.fullh-250, 400, 110,30)
+    exitBut.anchorX=1
+    exitBut.fill=q.CL"6120FF"
+
+    local okLabel = display.newText( {
+      parent = quizzGame,
+      text = "OK",
+      x=exitBut.x-exitBut.width*.5,
+      y=exitBut.y,
+      font="roboto_m.ttf",
+      fontSize=20*2,
+    } )
+    okLabel:setFillColor( 1 )
+
+
+    exitBut:addEventListener( "tap", toMain )
+
+  
   end
   waitAnswer = function()
     curretI = curretI + 1
     local i = curretI
     
-    backL1.fill = q.CL"1E3090"
-    backL2.fill = q.CL"1E3090"
-    backR1.fill = q.CL"1E3090"
-    backR2.fill = q.CL"1E3090"
-    if i>#quizInfo.answers then
+    -- backL1.fill = q.CL"1E3090"
+    -- backL2.fill = q.CL"1E3090"
+    -- backR1.fill = q.CL"1E3090"
+    -- backR2.fill = q.CL"1E3090"
+    if i>#quizzInfo.answers then
       finish() return
     end
+    countLabel.text = "Вопрос "..i.."/"..#quizzInfo.questions
 
-    correctNow = quizInfo.answers[i][5]
-    labelQuest.text = quizInfo.questions[i]
-    labelL1.text = quizInfo.answers[i].text[1]
-    labelL2.text = quizInfo.answers[i].text[2]
-    labelR1.text = quizInfo.answers[i].text[3]
-    labelR2.text = quizInfo.answers[i].text[4]
+    correctNow = quizzInfo.answers[i][5]
+    labelQuest.text = quizzInfo.questions[i]
+    labelL1.text = quizzInfo.answers[i].text[1]
+    labelL2.text = quizzInfo.answers[i].text[2]
+    labelR1.text = quizzInfo.answers[i].text[3]
+    labelR2.text = quizzInfo.answers[i].text[4]
     
     backL1:addEventListener( "tap", checkCorrect )
     backL2:addEventListener( "tap", checkCorrect )
@@ -699,6 +746,317 @@ local function startQuiz(event)
     backR2:addEventListener( "tap", checkCorrect )
   end
   waitAnswer()
+  -- finish()
+end
+
+local kursesInfo = {
+
+}
+local function videoListener( event )
+  print( "Event phase: " .. event.phase )
+  if event.errorCode then
+      native.showAlert( "Error!", event.errorMessage, { "OK" } )
+  end
+end
+local allToms = {
+  {
+    title = "Курс верстки веб-страниц",
+    discription = "Научитесь вносить правки в код веб-страницы и верстать текстовые блоки с нуля. Узнаете, как менять оформление и стиль отдельных элементов сайта",
+    tomes = {
+      {title="Теги для разметки и атрибуты",timecode="0:00 - 4:12",discription="Познакомитесь с тегами и их атрибутами. Узнаете, что такое вложенность тегов, поймёте, как сделать разметку читабельной и понятной. Разберётесь в порядке использования таких тегов, как абзац, цитата, ссылкаи картинка. Научитесь расставлять акценты в тексте"},
+      {title="Списки и таблицы",timecode="4:13 - 6:28",discription="Изучите виды и порядок формирования списков и таблиц. Сформируете разметку для своего первого многоуровневого списка. Рассмотрите варианты оформления таблиц, научитесь делать заголовки и итоговые блоки, объединять ячейки с помощью атрибутов"},
+      {title="Селекторы и свойства",timecode="6:29 - 10:45",discription="Познакомитесь с основами CSS. Узнаете, что такое селектор. Научитесь правильно описывать CSS-правила. Поймёте, как изменять размер шрифта, его начертание, цвет. Рассмотрите тему наследования свойств. Изучите вопрос, касающийся комбинирования селекторов"},
+    }
+  },
+  {
+    title = "Разработка UX для дизайнеров",
+    discription = "Познакомитесь с ключевыми понятиями и принципами дизайна, лежащими в основе любого изображения и макета. Выполните практические задания по разработке сайтов и рекламной графики для закрепления материала",
+    tomes = {
+      {title="Кто такой UX-дизайнер?",timecode="0:00 - 5:28",discription="UX - Дизайнер востребованная сейчас профессия.. Один два три четыре пять шесть"},
+      {title="Тестирование",timecode="5:29 - 10:28",discription="Тестирование - неотъемлемая часть разработки UX - дизайна"},
+      {title="Название задачи",timecode="10:29 - 12:45",discription="Ключевая часть разработки дизайна - расстановка задач. Должны быть четкое определение как и что будет выглядить"},
+    }
+  },
+  {
+    title = "Unity для гейм-дизайнеров",
+    discription = "Научитесь создавать и комбинировать игровые механики, чтобы не дать игроку заскучать. Изучите основы игровых движков, научитесь тестировать в них идеи, выдвигать гипотезы и проверять их",
+    tomes = {
+      {title="Разработка концепции игры",timecode="0:00 - 5:11",discription="Научитесь создавать сюжет и композицию игры, строить дизайн игрового пространства, карты уровней и карты маршрутов"},
+      {title="Постановка задач",timecode="5:12 - 12:32",discription="Спроектируете игровые уровни и механики. Научитесь анализировать различные модели баланса игр. Составите техническую документацию"},
+      {title="Продвижение игры",timecode="12:33 - 15:41",discription="Изучите основы монетизации игр. Поймёте, как работает авторское право. Узнаете, как вывести игровой продукт на рынок и сделать игру прибыльной"},
+    }
+  },
+  {
+    title = "Python для начинающих",
+    discription = "Изучите основы одного из самых популярных языков программирования. Самостоятельно разработаете планировщик задач и Telegram-бота",
+    tomes = {
+      {title="Возможности Python",timecode="0:00 - 4:54",discription="Научитесь работать с данными и напишете свою первую программу. \n- Области использования Python \n- Общее представление о программировании\n- Инструменты для написания кода\n- Понятие переменной\n- Данные и работа с ними"},
+      {title="Первая программа",timecode="4:55 - 8:39",discription="Начнёте разрабатывать приложение ToDo, которое позволит ставить задачи на определённую дату и управлять ими. Познакомитесь с базовыми конструкциями в Python: условными операторами и циклами.\n- Логические выражения\n- Условные конструкции\n- Добавление выбора действия в зависимости от введённой команды\n- Циклы for и while"},
+      {title="Приложение ToDo",timecode="8:40 - 12:12",discription="Научитесь использовать сторонние библиотеки с готовым программным кодом и функциями, которые создали разработчики для решения многих типовых задач. Начнёте создавать свои собственные функции.\n- Роль и задачи функций\n- Использование сторонних библиотек\n- Написание функций для приложения ToDo"},
+    }
+  }
+}
+local function startKurs(event)
+  if event.y>(q.fullh-125) or event.y<330 then return end
+  q.event.group.off("kursesButtons")
+  q.event.group.off("downBar")
+  searchField.x = -1000
+  searchField.y = -1000
+
+  hideLayer("kurs")
+
+  mainLabel.alpha = 0
+
+  local title = allToms[event.target.i].title
+  local discription = allToms[event.target.i].discription
+  local tomes = allToms[event.target.i].tomes
+
+
+  if kursGroup ~=nil then display.remove(kursGroup) end
+  kursGroup = display.newGroup()
+  kursScreen:insert( kursGroup )
+  kursScreen:toFront( )
+
+  local backGround = display.newRect(kursGroup, q.cx, q.cy, q.fullw, q.fullh)
+  backGround.fill={.95}
+
+
+  local backIcon = display.newImageRect( kursGroup, "img/back.png", 90, 90 )
+  backIcon.anchorX = 0
+  backIcon.x, backIcon.y = 30, 80
+
+  local allKursLabel = display.newText( {
+    parent = kursGroup,
+    text = "Видео лекции",
+    x=q.cx,
+    y=backIcon.y,
+    font="poppins_r.ttf",
+    fontSize=16*2,
+    } )
+  allKursLabel:setFillColor( unpack( q.CL"201E22" ) )
+
+  local videoPreview = display.newRoundedRect( kursGroup, q.cx, backIcon.y*2, q.fullw, 450, 40)
+  videoPreview.fill = c.gray
+  videoPreview.anchorY = 0
+  videoPreview.fill = {
+    type = "image",
+    filename = "img/kurses/"..event.target.i.."_.jpg"
+  }
+
+  local alltimeback = display.newRoundedRect( kursGroup, q.fullw-30,videoPreview.y+videoPreview.height-30,100,45,20)
+  alltimeback.anchorX=1
+  alltimeback.anchorY=1
+  alltimeback.fill = q.CL"EFF2F8"
+  alltimeback.alpha = .8 
+  local alltimeLabel = display.newText( {
+    parent = kursGroup,
+    text = "0:00",
+    x=5,
+    y=15,
+    font="poppins_r.ttf",
+    fontSize=14.6*2,
+    } )
+  alltimeLabel.x = alltimeback.x - alltimeback.width*.5 + 3
+  alltimeLabel.y = alltimeback.y - alltimeback.height*.5 + 4
+  alltimeLabel:setFillColor( unpack( q.CL"201E22" ) )
+
+
+  local titleLabel = display.newText( {
+    parent = kursGroup,
+    text = title,
+    x=50,
+    y=videoPreview.y+videoPreview.height+100-28,
+    font="poppins_r.ttf",
+    fontSize=18*2,
+    } )
+  titleLabel.anchorX = 0
+  titleLabel.anchorY = 0
+  titleLabel:setFillColor( unpack( q.CL"201E22" ) )
+
+  local discLabel = display.newText( {
+    parent = kursGroup,
+    text = discription,
+    x=50,
+    y=titleLabel.y+titleLabel.height+30,
+    font="poppins_r.ttf",
+    fontSize=14*2,
+    width=q.fullw-50*2,
+    } )
+  discLabel.anchorX = 0
+  discLabel.anchorY = 0
+  discLabel:setFillColor( unpack( q.CL"626164" ) )
+
+
+  local titleLabel = display.newText( {
+    parent = kursGroup,
+    text = "Главы видео",
+    x=50,
+    y=q.fullh-520,
+    font="poppins_r.ttf",
+    fontSize=18*2,
+    } )
+  titleLabel.anchorX = 0
+  titleLabel.anchorY = 1
+  titleLabel:setFillColor( unpack( q.CL"201E22" ) )
+
+
+  local tomGroup
+  local curretI = 0
+  local tomLabel, discLabel
+  local toBackLabel, toNextLabel
+  local function nextTom()
+    if curretI==3 then return end
+    curretI = curretI + 1
+    tomLabel.text = tomes[curretI].title
+    discLabel.text = tomes[curretI].discription
+    if curretI==3 then
+      toBackLabel:setFillColor( unpack( q.CL"201E22" ) )
+      toNextLabel:setFillColor( unpack( c.gray ) )
+    else
+      toBackLabel:setFillColor( unpack( q.CL"201E22" ) )
+      toNextLabel:setFillColor( unpack( q.CL"201E22" ) )
+    end
+  end
+  local function prevTom()
+    if curretI==1 then return end
+    curretI = curretI - 1
+    tomLabel.text = tomes[curretI].title
+    discLabel.text = tomes[curretI].discription
+    if curretI==1 then
+      toBackLabel:setFillColor( unpack( c.gray ) )
+      toNextLabel:setFillColor( unpack( q.CL"201E22" ) )
+    else
+      toBackLabel:setFillColor( unpack( q.CL"201E22" ) )
+      toNextLabel:setFillColor( unpack( q.CL"201E22" ) )
+    end
+  end
+  local function genTomDiscription( event )
+    if tomGroup~=nil then display.remove( tomGroup ) tomGroup=nil end
+    tomGroup = display.newGroup()
+    kursGroup:insert(tomGroup)
+    local i = event.target.i
+    curretI = i
+    q.event.group.off("tomesButtons")
+
+    tomGroup.y = q.fullh
+    transition.to( tomGroup, {y=0, time=600, transition=easing.outSine} )
+
+    local back = display.newRoundedRect( tomGroup, q.cx, q.fullh+100, q.fullw, 100+q.fullh-(videoPreview.y+videoPreview.height+60), 40 )
+    back.anchorY=1
+    back.fill = {.9}--c.gray2
+    local y = back.y-back.height
+
+    tomLabel = display.newText( {
+      parent = tomGroup,
+      text = tomes[i].title,
+      x=50,
+      y=y+40,
+      font="poppins_m.ttf",
+      fontSize=18*2,
+    } )
+    tomLabel.anchorX = 0
+    tomLabel.anchorY = 0
+    tomLabel:setFillColor( unpack( q.CL"201E22" ) )
+
+    discLabel = display.newText( {
+      parent = tomGroup,
+      text = tomes[i].discription,
+      x=50,
+      y=y+40+70,
+      font="poppins_r.ttf",
+      fontSize=14.5*2,
+      width=q.fullw-50*2,
+    } )
+    discLabel.anchorX = 0
+    discLabel.anchorY = 0
+    discLabel:setFillColor( unpack( q.CL"201E22" ) )
+
+    local closeIcon = display.newImageRect( tomGroup, "img/close.png", 90, 90 )
+    closeIcon.x, closeIcon.y = q.fullw-65, y+65
+
+    toBackLabel = display.newText( {
+      parent = tomGroup,
+      text = "< Назад",
+      x=50,
+      y=q.fullh-30,
+      font="poppins_r.ttf",
+      fontSize=14.5*2,
+    } )
+    toBackLabel.anchorX = 0
+    toBackLabel.anchorY = 1
+    toBackLabel:setFillColor( unpack( q.CL"201E22" ) )
+    if i==1 then 
+      toBackLabel:setFillColor( unpack( c.gray ) )
+    end
+    toBackLabel:addEventListener( "tap", prevTom )
+
+    toNextLabel = display.newText( {
+      parent = tomGroup,
+      text = "Вперёд >",
+      x=q.fullw-50,
+      y=q.fullh-30,
+      font="poppins_r.ttf",
+      fontSize=14.5*2,
+    } )
+    toNextLabel.anchorX = 1
+    toNextLabel.anchorY = 1
+    toNextLabel:setFillColor( unpack( q.CL"201E22" ) )
+    if i==3 then 
+      toNextLabel:setFillColor( unpack( c.gray ) )
+    end
+    toNextLabel:addEventListener( "tap", nextTom )
+
+
+    closeIcon:addEventListener( "tap", function()
+      transition.to( tomGroup, {y=q.fullh, time=400, transition=easing.inSine, onComplete=function()
+        display.remove(tomGroup)
+        q.event.group.on("tomesButtons")
+      end} )
+    end )
+  end
+
+  for i=1, #tomes do
+    local img = display.newImageRect(kursGroup,"img/tom_template.png",140,140)
+    img.anchorX = 0
+    img.x, img.y = 50, titleLabel.y+165*i-60
+
+    local moreInf = display.newImageRect( kursGroup, "img/tom_info.png", 64,64 )
+    moreInf.anchorX=1
+    moreInf.x, moreInf.y = q.fullw-50, img.y-5
+    moreInf.i = i
+    q.event.add("tomeInfo"..i, moreInf, genTomDiscription)
+    q.event.group.add("tomesButtons","tomeInfo"..i)
+
+
+    local tomLabel = display.newText( {
+      parent = kursGroup,
+      x = img.x+img.width+30,
+      y = img.y+10,
+      text = tomes[i].title,
+      font = "poppins_r.ttf",
+      fontSize = 14.5*2,
+      } )
+    tomLabel.anchorX=0
+    tomLabel.anchorY=1
+    tomLabel:setFillColor( unpack( q.CL"201E22" ) )
+
+    local timecode = display.newText( {
+      parent = kursGroup,
+      x = img.x+img.width+30,
+      y = img.y,
+      text = tomes[i].timecode,
+      font = "poppins_r.ttf",
+      fontSize = 12.5*2,
+      } )
+    timecode.anchorX=0
+    timecode.anchorY=0
+    timecode:setFillColor( unpack( q.CL"626164" ) )
+  end
+  q.event.group.on("tomesButtons")
+
+
+  -- genTomDiscription( {target={i=1}} )
+  backIcon:addEventListener( "tap", toMain )
 end
 
 local function testsResponder(event)
@@ -723,7 +1081,7 @@ local function testsResponder(event)
       images.anchorY = 0
       images.fill = c.gray
       images.i = i
-      q.event.add("playtest"..i, images, startQuiz)
+      q.event.add("playtest"..i, images, startQuizz)
       q.event.group.add("testsButtons","playtest"..i)
 
       local paint = {
@@ -746,7 +1104,7 @@ local function testsResponder(event)
         text = allQuizz[i].title,
         x = 60,
         y = front.y - front.height*.5 - 25,
-        font = "ubuntu_m.ttf",
+        font = "roboto_m.ttf",
         fontSize = 16*2,
         })
       testsLabel.anchorX = 0
@@ -772,7 +1130,7 @@ local function testsResponder(event)
     end
     topMain:toFront()
 
-      
+    -- startQuizz({target={i=1},y=q.cy})
   end
 end
 
@@ -781,7 +1139,7 @@ local function statisticResponder(event)
     print( "Error!" )
   else
     local myNewData = event.response
-    print("Users ",myNewData)
+    -- print("Users ",myNewData)
     local statAll = json.decode( myNewData )
     local stat = statAll["1"]
     statGraf = statAll["2"]
@@ -793,7 +1151,7 @@ local function statisticResponder(event)
     end
     local working = q.round(sum/#stat*100)
     local notWorking = 100 - working
-    print("stat",#stat,sum)
+    -- print("stat",#stat,sum)
 
     workingLabel = display.newText({
       parent = adminGroup,
@@ -894,28 +1252,28 @@ end
 function scene:create( event )
 	local sceneGroup = self.view
 
-	backGroup = display.newGroup()
+	backGroup = display.newGroup() -- Группа фоновых элементов
 	sceneGroup:insert(backGroup)
 
-	mainGroup = display.newGroup()
+	mainGroup = display.newGroup() -- Группа основного экрана
 	sceneGroup:insert(mainGroup)
 
-  testsGroup = display.newGroup()
+  testsGroup = display.newGroup() -- Группа списка тестов
   mainGroup:insert(testsGroup)
 
-  kursGroup = display.newGroup()
-  mainGroup:insert(kursGroup)
-  kursGroup.alpha = 0
+  kursesGroup = display.newGroup() -- Группа списка курсов
+  mainGroup:insert(kursesGroup)
+  kursesGroup.alpha = 0
 
-	eventGroup = display.newGroup()
+	eventGroup = display.newGroup() -- Группа списка новостей
 	sceneGroup:insert(eventGroup)
 	eventGroup.alpha = 0
 
-	chatGroup = display.newGroup()
+	chatGroup = display.newGroup() -- Группа чата
 	sceneGroup:insert(chatGroup)
 	chatGroup.alpha = 0
 
-	profileGroup = display.newGroup()
+	profileGroup = display.newGroup() -- Группа профиля
 	sceneGroup:insert(profileGroup)
 	profileGroup.alpha = 0
 
@@ -927,11 +1285,14 @@ function scene:create( event )
   end
 
 
-	uiGroup = display.newGroup()
+	uiGroup = display.newGroup() -- Группа общих элементов
 	sceneGroup:insert(uiGroup)
 
-	quizScreen = display.newGroup()
-	uiGroup:insert(quizScreen)
+	quizzScreen = display.newGroup() -- Группа для прохождения теста
+	uiGroup:insert(quizzScreen)
+
+  kursScreen = display.newGroup() -- Группа для просмотра курса
+  uiGroup:insert(kursScreen)
 
   server = composer.getVariable( "ip" )
 
@@ -959,19 +1320,26 @@ function scene:create( event )
   mainButton.y = q.fullh - mainButton.height*.5-20
   mainButton.x = q.cx*.25+20
   mainButton:setFillColor( unpack( c.blue ) )
-  mainButton:addEventListener( "tap", toMain )
+  q.event.add("toMain", mainButton, toMain)
+  q.event.group.add("downBar","toMain")
+  -- mainButton:addEventListener( "tap", toMain )
 
   eventButton = display.newImageRect( uiGroup, "img/events.png", 58*2, 44*2 )
   eventButton.y = q.fullh - eventButton.height*.5-20
   eventButton.x = q.cx*.75+10
   eventButton:setFillColor( unpack( c.grayButtons ) )
-  eventButton:addEventListener( "tap", toEvent )
+  q.event.add("toEvent", eventButton, toEvent)
+  q.event.group.add("downBar","toEvent")
+  -- eventButton:addEventListener( "tap", toEvent )
 
   chatButton = display.newImageRect( uiGroup, "img/chatsoon.png", 58*2, 44*2 )
   chatButton.y = q.fullh - chatButton.height*.5-20
   chatButton.x = q.cx*1.25-10
   chatButton:setFillColor( unpack( c.gray ) )
+  q.event.add("toChat", chatButton, toChat)
+  q.event.group.add("downBar","toChat")
   -- chatButton:addEventListener( "tap", toChat )
+
   local soonLabel = display.newText( {
   	parent = uiGroup,
   	text = "Soon!",
@@ -986,8 +1354,11 @@ function scene:create( event )
   profileButton.y = q.fullh - profileButton.height*.5-20
   profileButton.x = q.cx*1.75-20
   profileButton:setFillColor( unpack( c.grayButtons ) )
-  profileButton:addEventListener( "tap", toAccount )
+  q.event.add("toAccount", profileButton, toAccount)
+  q.event.group.add("downBar","toAccount")
+  -- profileButton:addEventListener( "tap", toAccount )
 
+  q.event.group.on("downBar")
   
   
 
@@ -1073,19 +1444,18 @@ function scene:create( event )
       print( "Error!" )
     else
       local myNewData = event.response
-      -- print("Serddder:",myNewData)
       local dataKurs = (json.decode(myNewData))
       
-      local space = 70
+      local space = 60
       local testHeight = (q.fullw-3*space)*.5
 
       for i=1, #dataKurs do
-        local images = display.newRoundedRect(kursGroup, q.cx*.55, 350+math.floor((i-1)/2)*(testHeight+150), testHeight, testHeight,12)
+        local images = display.newRoundedRect(kursesGroup, q.cx*.53, 370+math.floor((i-1)/2)*(testHeight+200), testHeight, testHeight,30)
         images.anchorY = 0
         images.fill = c.gray
         images.i = i
         if i%2==0 then
-          images.x = q.cx*1.45
+          images.x = q.cx*1.47
         end
 
         local paint = {
@@ -1094,21 +1464,45 @@ function scene:create( event )
           filename = "img/kurses/"..i..".jpg"
         }
         images.fill = paint
+        q.event.add("playkurs"..i, images, startKurs)
+        q.event.group.add("kursesButtons","playkurs"..i)
 
         local discpriptionLabel = display.newText({
-          parent = kursGroup,
+          parent = kursesGroup,
           text = dataKurs[i].title,
+          -- text = "AAAAAAA",
           x = images.x-images.width*.5+10,
           y = images.y+images.width+15,
-          width = testHeight-40,
-          font = "poppins_m.ttf",
-          fontSize = 12*2,
+          width = testHeight-20,
+          font = "poppins_r.ttf",
+          fontSize = 14*2,
           })
         discpriptionLabel.anchorX = 0
         discpriptionLabel.anchorY = 0
         discpriptionLabel:setFillColor( unpack( c.black ) )
 
+        local star = display.newImageRect( kursesGroup, "img/star.png", 35, 35 )
+        star.x, star.y = discpriptionLabel.x, discpriptionLabel.y + discpriptionLabel.height-25 + 20
+        star.anchorX = 0
+        star.anchorY = 0
+
+        dataKurs[i].rate = "4.9"
+        local rateLabel = display.newText({
+          parent = kursesGroup,
+          text = dataKurs[i].rate,
+          x = star.x+star.width,
+          y = star.y+star.height*.5+4,
+          width = testHeight-20,
+          font = "poppins_r.ttf",
+          fontSize = 13*2,
+          })
+        rateLabel.anchorX = 0
+        -- rateLabel.anchorY = 0
+        rateLabel:setFillColor( unpack( q.CL"626164" ) )
+
       end
+      q.event.group.on("kursesButtons")
+      -- startKurs({y=q.cy})
 
     end
   end
@@ -1607,12 +2001,13 @@ function scene:show( event )
 
 	elseif ( phase == "did" ) then
 		-- toAccount()
-      -- toKurs()
-    toEvent()
+      toKurs()
+      -- print("openninnnnnnnng")
+    -- toEvent()
 		-- toChat()
 
-    timer.performWithDelay( 100, 
-    toAdmin )
+    -- timer.performWithDelay( 100, 
+    -- toAdmin )
 	end
 end
 
@@ -1625,8 +2020,9 @@ function scene:hide( event )
 	if ( phase == "will" ) then
 
 	elseif ( phase == "did" ) then
-    composer.removeScene( "menu" )
-    print("remove")
+    -- q.event.group.off()
+    -- composer.removeScene( "menu" )
+    -- print("scene hide")
 
 	end
 end
@@ -1635,6 +2031,8 @@ end
 function scene:destroy( event )
 
 	local sceneGroup = self.view
+  q.event.clearAll()
+  print("scene destroy")
 
 end
 

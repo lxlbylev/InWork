@@ -62,7 +62,7 @@ local function jsonForUrl(jsonString)
   return jsonString
 end
 
-
+local a = math.random( 1000)
 local base = {
   cx = round(display.contentCenterX),
   cy = round(display.contentCenterY),
@@ -174,6 +174,9 @@ local base = {
     print(json.encode(var))
   end,
   event = {
+    clearAll = function()
+      events = {list={},groups={}}
+    end, 
     add = function(name, butt, funcc)
       events.list[#events.list+1]=name
       events[name]={eventOn=false, but=butt, func=funcc}
@@ -226,6 +229,7 @@ local base = {
           local name = events[groupName][i]
           local event = events[name]
           events.eventOn = enable or true
+          print(a.."#group "..groupName.." enable "..name)
           event.but:addEventListener("tap", event.func)
         end
       end,
